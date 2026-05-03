@@ -14,4 +14,4 @@ class_name = "MgpSignalRoom"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["MgpSignalRoom"]
+new_sqlite_classes = ["MgpSignalRoom"]
