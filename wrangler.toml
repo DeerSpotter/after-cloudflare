@@ -7,3 +7,11 @@ ROUTE_MODE = "health-first"
 PRIMARY_PROVIDER = "cdn-a"
 SECONDARY_PROVIDER = "cdn-b"
 TERTIARY_PROVIDER = "cdn-c"
+
+[[durable_objects.bindings]]
+name = "MGP_SIGNAL"
+class_name = "MgpSignalRoom"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MgpSignalRoom"]
