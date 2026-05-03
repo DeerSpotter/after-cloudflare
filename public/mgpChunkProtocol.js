@@ -1,3 +1,5 @@
+import { MgpAdaptivePeerScheduler, MgpUploadLimiter } from "./mgpAdaptivePeerScheduler.js";
+
 export class MgpChunkStore {
     constructor(options) {
         this.maxChunks = options?.maxChunks || 256;
@@ -35,12 +37,17 @@ export class MgpChunkStore {
 export class MgpChunkProtocol {
     constructor(options) {
         this.peerId = options.peerId;
+        this.remotePeerId = options.remotePeerId || null;
         this.channel = options.channel;
         this.store = options.store;
         this.pending = new Map();
         this.maxChunkBytes = options.maxChunkBytes || 4 * 1024 * 1024;
         this.maxRangeBytes = options.maxRangeBytes || 512 * 1024;
         this.timeoutMs = options.timeoutMs || 12000;
+        this.uploadLimiter = options.uploadLimiter || new MgpUploadLimiter({
+            maxConcurrentUploads: options.maxConcurrentUploads || 4,
+            maxQueuedUploads: options.maxQueuedUploads || 32
+        });
         this.channel.binaryType = "arraybuffer";
         this.channel.onmessage = (event) => this.onMessage(event);
     }
@@ -178,76 +185,84 @@ export class MgpChunkProtocol {
     }
 
     async handleChunkRequest(envelope) {
-        const item = this.store.get(envelope.chunkId);
+        await this.uploadLimiter.run(async () => {
+            const item = this.store.get(envelope.chunkId);
 
-        if (item === null) {
-            this.sendError("chunk-error", envelope.requestId, envelope.chunkId, "chunk-not-found");
-            return;
-        }
+            if (item === null) {
+                this.sendError("chunk-error", envelope.requestId, envelope.chunkId, "chunk-not-found");
+                return;
+            }
 
-        if (envelope.expectedSha256Hex !== null && envelope.expectedSha256Hex !== undefined && envelope.expectedSha256Hex !== item.sha256Hex) {
-            this.sendError("chunk-error", envelope.requestId, envelope.chunkId, "hash-mismatch-local-copy");
-            return;
-        }
+            if (envelope.expectedSha256Hex !== null && envelope.expectedSha256Hex !== undefined && envelope.expectedSha256Hex !== item.sha256Hex) {
+                this.sendError("chunk-error", envelope.requestId, envelope.chunkId, "hash-mismatch-local-copy");
+                return;
+            }
 
-        this.channel.send(JSON.stringify({
-            protocol: "mgp-chunk-v2",
-            type: "chunk-metadata",
-            requestId: envelope.requestId,
-            chunkId: item.chunkId,
-            byteLength: item.bytes.byteLength,
-            sha256Hex: item.sha256Hex
-        }));
+            this.channel.send(JSON.stringify({
+                protocol: "mgp-chunk-v2",
+                type: "chunk-metadata",
+                requestId: envelope.requestId,
+                chunkId: item.chunkId,
+                byteLength: item.bytes.byteLength,
+                sha256Hex: item.sha256Hex
+            }));
 
-        this.channel.send(item.bytes);
+            this.channel.send(item.bytes);
+        }).catch(() => {
+            this.sendError("chunk-error", envelope.requestId, envelope.chunkId, "upload-limited");
+        });
     }
 
     async handleRangeRequest(envelope) {
-        const item = this.store.get(envelope.chunkId);
+        await this.uploadLimiter.run(async () => {
+            const item = this.store.get(envelope.chunkId);
 
-        if (item === null) {
-            this.sendError("range-error", envelope.requestId, envelope.chunkId, "chunk-not-found");
-            return;
-        }
+            if (item === null) {
+                this.sendError("range-error", envelope.requestId, envelope.chunkId, "chunk-not-found");
+                return;
+            }
 
-        if (envelope.expectedChunkSha256Hex !== null && envelope.expectedChunkSha256Hex !== undefined && envelope.expectedChunkSha256Hex !== item.sha256Hex) {
-            this.sendError("range-error", envelope.requestId, envelope.chunkId, "hash-mismatch-local-copy");
-            return;
-        }
+            if (envelope.expectedChunkSha256Hex !== null && envelope.expectedChunkSha256Hex !== undefined && envelope.expectedChunkSha256Hex !== item.sha256Hex) {
+                this.sendError("range-error", envelope.requestId, envelope.chunkId, "hash-mismatch-local-copy");
+                return;
+            }
 
-        if (Number.isInteger(envelope.startByte) === false || Number.isInteger(envelope.endByteExclusive) === false) {
-            this.sendError("range-error", envelope.requestId, envelope.chunkId, "invalid-range");
-            return;
-        }
+            if (Number.isInteger(envelope.startByte) === false || Number.isInteger(envelope.endByteExclusive) === false) {
+                this.sendError("range-error", envelope.requestId, envelope.chunkId, "invalid-range");
+                return;
+            }
 
-        if (envelope.startByte < 0 || envelope.endByteExclusive > item.bytes.byteLength || envelope.endByteExclusive <= envelope.startByte) {
-            this.sendError("range-error", envelope.requestId, envelope.chunkId, "range-out-of-bounds");
-            return;
-        }
+            if (envelope.startByte < 0 || envelope.endByteExclusive > item.bytes.byteLength || envelope.endByteExclusive <= envelope.startByte) {
+                this.sendError("range-error", envelope.requestId, envelope.chunkId, "range-out-of-bounds");
+                return;
+            }
 
-        const rangeLength = envelope.endByteExclusive - envelope.startByte;
+            const rangeLength = envelope.endByteExclusive - envelope.startByte;
 
-        if (rangeLength > this.maxRangeBytes) {
-            this.sendError("range-error", envelope.requestId, envelope.chunkId, "range-too-large");
-            return;
-        }
+            if (rangeLength > this.maxRangeBytes) {
+                this.sendError("range-error", envelope.requestId, envelope.chunkId, "range-too-large");
+                return;
+            }
 
-        const rangeBytes = item.bytes.slice(envelope.startByte, envelope.endByteExclusive);
-        const rangeSha256Hex = await sha256Hex(rangeBytes);
+            const rangeBytes = item.bytes.slice(envelope.startByte, envelope.endByteExclusive);
+            const rangeSha256Hex = await sha256Hex(rangeBytes);
 
-        this.channel.send(JSON.stringify({
-            protocol: "mgp-chunk-v2",
-            type: "range-metadata",
-            requestId: envelope.requestId,
-            chunkId: item.chunkId,
-            startByte: envelope.startByte,
-            endByteExclusive: envelope.endByteExclusive,
-            byteLength: rangeBytes.byteLength,
-            rangeSha256Hex: rangeSha256Hex,
-            chunkSha256Hex: item.sha256Hex
-        }));
+            this.channel.send(JSON.stringify({
+                protocol: "mgp-chunk-v2",
+                type: "range-metadata",
+                requestId: envelope.requestId,
+                chunkId: item.chunkId,
+                startByte: envelope.startByte,
+                endByteExclusive: envelope.endByteExclusive,
+                byteLength: rangeBytes.byteLength,
+                rangeSha256Hex: rangeSha256Hex,
+                chunkSha256Hex: item.sha256Hex
+            }));
 
-        this.channel.send(rangeBytes);
+            this.channel.send(rangeBytes);
+        }).catch(() => {
+            this.sendError("range-error", envelope.requestId, envelope.chunkId, "upload-limited");
+        });
     }
 
     async handleMetadata(envelope) {
@@ -359,9 +374,11 @@ export class MgpChunkProtocol {
 export class MgpParallelChunkAssembler {
     constructor(options) {
         this.store = options.store;
-        this.rangeSizeBytes = options.rangeSizeBytes || 256 * 1024;
-        this.maxPeersPerChunk = options.maxPeersPerChunk || 8;
-        this.maxRetriesPerRange = options.maxRetriesPerRange || 2;
+        this.scheduler = options.scheduler || new MgpAdaptivePeerScheduler({
+            maxPeersPerChunk: options.maxPeersPerChunk || 8
+        });
+        this.rangeSizeBytes = options.rangeSizeBytes || null;
+        this.maxRetriesPerRange = options.maxRetriesPerRange || 3;
     }
 
     async fetchChunk(options) {
@@ -369,6 +386,7 @@ export class MgpParallelChunkAssembler {
         const expectedSha256Hex = options.expectedSha256Hex;
         const byteLength = options.byteLength;
         const peerProtocols = options.peerProtocols || [];
+        const context = options.context || {};
 
         if (this.store.has(chunkId)) {
             const cached = this.store.get(chunkId);
@@ -382,18 +400,21 @@ export class MgpParallelChunkAssembler {
             throw new Error("parallel-chunk-byte-length-required");
         }
 
-        const usablePeers = peerProtocols.slice(0, this.maxPeersPerChunk);
+        const scheduledPeers = this.scheduler.selectPeers(peerProtocols, context);
 
-        if (usablePeers.length === 0) {
-            throw new Error("no-peer-protocols-available");
+        if (scheduledPeers.length === 0) {
+            throw new Error("no-scheduled-peers-available");
         }
 
-        const ranges = buildRanges(byteLength, this.rangeSizeBytes);
+        const rangeSizeBytes = this.rangeSizeBytes || this.scheduler.chooseRangeSize({
+            ...context,
+            peerProtocols: peerProtocols
+        });
+        const ranges = buildRanges(byteLength, rangeSizeBytes);
         const results = new Array(ranges.length);
         let nextRangeIndex = 0;
         let activeFailure = null;
-
-        const workerCount = Math.min(usablePeers.length, ranges.length);
+        const workerCount = Math.min(scheduledPeers.length, ranges.length);
         const workers = [];
 
         for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
@@ -407,12 +428,12 @@ export class MgpParallelChunkAssembler {
                     }
 
                     const range = ranges[rangeIndex];
-                    const result = await this.fetchRangeWithRetries({
+                    const result = await this.fetchRangeWithAdaptiveRetries({
                         range: range,
                         chunkId: chunkId,
                         expectedSha256Hex: expectedSha256Hex,
-                        peerProtocols: usablePeers,
-                        startPeerOffset: workerIndex
+                        peerProtocols: peerProtocols,
+                        context: context
                     });
 
                     results[rangeIndex] = result;
@@ -439,24 +460,32 @@ export class MgpParallelChunkAssembler {
         return assembled;
     }
 
-    async fetchRangeWithRetries(options) {
-        const range = options.range;
-        const peerProtocols = options.peerProtocols;
+    async fetchRangeWithAdaptiveRetries(options) {
         let lastError = null;
 
-        for (let attempt = 0; attempt <= this.maxRetriesPerRange; attempt += 1) {
-            const peerIndex = (options.startPeerOffset + attempt) % peerProtocols.length;
-            const protocol = peerProtocols[peerIndex];
+        for (let attempt = 0; attempt < this.maxRetriesPerRange; attempt += 1) {
+            const candidates = this.scheduler.selectPeers(options.peerProtocols, options.context);
+
+            if (candidates.length === 0) {
+                break;
+            }
+
+            const peerState = candidates[0];
+            const startedAtMs = Date.now();
+            this.scheduler.beginRange(peerState);
 
             try {
-                return await protocol.requestRange(
+                const result = await peerState.protocol.requestRange(
                     options.chunkId,
-                    range.startByte,
-                    range.endByteExclusive,
+                    options.range.startByte,
+                    options.range.endByteExclusive,
                     options.expectedSha256Hex
                 );
+                this.scheduler.completeRange(peerState, result.bytes.byteLength, startedAtMs);
+                return result;
             } catch (error) {
                 lastError = error;
+                this.scheduler.failRange(peerState, error);
             }
         }
 
@@ -495,16 +524,18 @@ export async function fetchChunkWithCdnThenPeers(options) {
     if (options.enableParallelPeerFetch === true && Number.isInteger(options.byteLength) === true && peerProtocols.length > 1) {
         const assembler = new MgpParallelChunkAssembler({
             store: store,
-            rangeSizeBytes: options.rangeSizeBytes || 256 * 1024,
+            scheduler: options.scheduler || null,
+            rangeSizeBytes: options.rangeSizeBytes || null,
             maxPeersPerChunk: options.maxPeersPerChunk || 8,
-            maxRetriesPerRange: options.maxRetriesPerRange || 2
+            maxRetriesPerRange: options.maxRetriesPerRange || 3
         });
 
         return await assembler.fetchChunk({
             chunkId: chunkId,
             expectedSha256Hex: expectedSha256Hex,
             byteLength: options.byteLength,
-            peerProtocols: peerProtocols
+            peerProtocols: peerProtocols,
+            context: options.context || {}
         });
     }
 
