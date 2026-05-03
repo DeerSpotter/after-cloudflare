@@ -5,6 +5,9 @@ import { fetchThroughProvider } from "./routing/providerFetch.js";
 import { getHealthSnapshot, markProviderFailure, markProviderSuccess } from "./routing/health.js";
 import { createPeerFallbackResponse } from "./peer/peerFallback.js";
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
+import { MgpSignalRoom } from "./peer/signalingObject.js";
+
+export { MgpSignalRoom };
 
 const BLOCK_STATUS_CODES = new Set([403, 404, 408, 409, 423, 425, 429, 451, 500, 502, 503, 504]);
 
