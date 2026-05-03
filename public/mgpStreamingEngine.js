@@ -1,4 +1,5 @@
 import { MgpChunkStore, fetchChunkWithCdnThenPeers, sha256Hex } from "./mgpChunkProtocol.js";
+import { MgpAdaptivePeerScheduler } from "./mgpAdaptivePeerScheduler.js";
 
 export class MgpStreamingEngine {
     constructor(options) {
@@ -6,9 +7,14 @@ export class MgpStreamingEngine {
         this.videoElement = options.videoElement || null;
         this.store = options.store || new MgpChunkStore({ maxChunks: options.maxChunks || 512 });
         this.peerProtocols = options.peerProtocols || [];
+        this.peerScheduler = options.peerScheduler || new MgpAdaptivePeerScheduler({
+            maxPeersPerChunk: options.maxPeersPerChunk || 8,
+            defaultRangeSizeBytes: options.rangeSizeBytes || 256 * 1024
+        });
         this.prefetchAhead = options.prefetchAhead || 6;
         this.maxParallelFetches = options.maxParallelFetches || 3;
         this.minPeerBufferSeconds = options.minPeerBufferSeconds || 12;
+        this.enableParallelPeerFetch = options.enableParallelPeerFetch !== false;
         this.segments = [];
         this.activeFetches = 0;
         this.nextPrefetchIndex = 0;
@@ -73,13 +79,24 @@ export class MgpStreamingEngine {
     async fetchSegment(segment) {
         const usePeers = this.shouldUsePeers();
         const peerProtocols = usePeers ? this.peerProtocols : [];
+        const startedAtMs = Date.now();
 
         const bytes = await fetchChunkWithCdnThenPeers({
             chunkId: segment.chunkId,
             expectedSha256Hex: segment.sha256Hex,
             cdnUrls: segment.cdnUrls,
             peerProtocols: peerProtocols,
-            store: this.store
+            store: this.store,
+            byteLength: segment.byteLength,
+            enableParallelPeerFetch: this.enableParallelPeerFetch,
+            scheduler: this.peerScheduler,
+            context: {
+                bufferedAheadSeconds: this.getBufferedAheadSeconds(),
+                activeFetches: this.activeFetches,
+                segmentDurationSeconds: segment.durationSeconds,
+                playbackIndex: this.getCurrentSegmentIndex(),
+                peerProtocols: peerProtocols
+            }
         });
 
         const actualHash = await sha256Hex(bytes);
@@ -88,7 +105,14 @@ export class MgpStreamingEngine {
             throw new Error("stream-segment-hash-mismatch");
         }
 
+        if (usePeers === true && peerProtocols.length > 0) {
+            this.stats.peerHits += 1;
+        } else {
+            this.stats.cdnHits += 1;
+        }
+
         this.stats.verifiedChunks += 1;
+        this.stats.lastFetchMs = Date.now() - startedAtMs;
         return bytes;
     }
 
@@ -156,7 +180,8 @@ export class MgpStreamingEngine {
             activeFetches: this.activeFetches,
             nextPrefetchIndex: this.nextPrefetchIndex,
             bufferedAheadSeconds: this.getBufferedAheadSeconds(),
-            stats: this.stats
+            stats: this.stats,
+            peerScheduler: this.peerScheduler.snapshot()
         };
     }
 }
@@ -172,6 +197,7 @@ function normalizeSegments(manifest) {
             startSeconds: 0,
             endSeconds: 10,
             durationSeconds: 10,
+            byteLength: Number.isInteger(manifest.byteLength) ? manifest.byteLength : null,
             sha256Hex: manifest.sha256Hex || null,
             cdnUrls: manifest.sources.map(source => source.url || source).filter(Boolean)
         }];
@@ -193,6 +219,7 @@ function normalizeSegment(value, index) {
         startSeconds: startSeconds,
         endSeconds: Number.isFinite(value.endSeconds) ? value.endSeconds : startSeconds + durationSeconds,
         durationSeconds: durationSeconds,
+        byteLength: Number.isInteger(value.byteLength) ? value.byteLength : null,
         sha256Hex: value.sha256Hex || null,
         cdnUrls: Array.isArray(value.cdnUrls) ? value.cdnUrls : []
     };
