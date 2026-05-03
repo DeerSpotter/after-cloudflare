@@ -11,34 +11,23 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
+        if (url.pathname === "/peer/ws") {
+            const id = env.MGP_SIGNAL.idFromName("global-room");
+            const stub = env.MGP_SIGNAL.get(id);
+            return stub.fetch(request);
+        }
+
         if (url.pathname === "/health") {
             return Response.json({
                 status: "ok",
                 protocol: "mgp-edge",
                 providers: createMgpProviderSnapshot(PROVIDERS, getHealthSnapshot())
-            }, {
-                headers: secureHeaders()
-            });
-        }
-
-        if (url.pathname === "/providers") {
-            return Response.json({
-                protocol: "mgp-edge",
-                providers: createMgpProviderSnapshot(PROVIDERS, getHealthSnapshot())
-            }, {
-                headers: secureHeaders()
-            });
+            }, { headers: secureHeaders() });
         }
 
         if (url.pathname === "/manifest") {
             const assetPath = url.searchParams.get("path") || "/video/example/episode-001/v1/chunk-0001.ts";
-            return Response.json(createMgpManifest(assetPath, PROVIDERS), {
-                headers: secureHeaders()
-            });
-        }
-
-        if (url.pathname === "/peer/lookup") {
-            return createPeerFallbackResponse(request, PROVIDERS);
+            return Response.json(createMgpManifest(assetPath, PROVIDERS), { headers: secureHeaders() });
         }
 
         const routeResult = await routeRequest(request);
@@ -65,7 +54,7 @@ async function routeRequest(request) {
         }
 
         if (BLOCK_STATUS_CODES.has(response.status)) {
-            markProviderFailure(provider.name, "blocked-or-unhealthy-status-" + response.status);
+            markProviderFailure(provider.name, "blocked-" + response.status);
             continue;
         }
 
@@ -73,14 +62,11 @@ async function routeRequest(request) {
 
         const headers = new Headers(response.headers);
         headers.set("x-open-edge-provider", provider.name);
-        headers.set("x-open-edge-route", "mgp-health-first");
         headers.set("x-mgp-route-id", routePacket.routeId);
-        headers.set("x-mgp-provider-count", String(rankedProviders.length));
 
         return new Response(response.body, {
             status: response.status,
-            statusText: response.statusText,
-            headers: headers
+            headers
         });
     }
 
@@ -89,8 +75,7 @@ async function routeRequest(request) {
 
 function secureHeaders() {
     return {
-        "content-type": "application/json; charset=utf-8",
-        "cache-control": "no-store",
-        "x-content-type-options": "nosniff"
+        "content-type": "application/json",
+        "cache-control": "no-store"
     };
 }
