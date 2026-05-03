@@ -1,0 +1,30 @@
+{
+  "name": "Open Edge Router",
+  "short_name": "OpenEdge",
+  "description": "Hybrid multi CDN and peer assisted streaming shell.",
+  "start_url": "/public/demoPlayer.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "orientation": "any",
+  "categories": [
+    "entertainment",
+    "utilities",
+    "developer"
+  ],
+  "icons": [
+    {
+      "src": "/public/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/public/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
