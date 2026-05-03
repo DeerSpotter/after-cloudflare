@@ -1,0 +1,15 @@
+{
+  "name": "open-edge-router",
+  "version": "0.1.0",
+  "description": "Hybrid multi CDN and peer assisted edge routing system.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "dry-run": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
