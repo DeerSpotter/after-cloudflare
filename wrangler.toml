@@ -1,0 +1,9 @@
+name = "open-edge-router"
+main = "src/worker.js"
+compatibility_date = "2026-05-03"
+
+[vars]
+ROUTE_MODE = "health-first"
+PRIMARY_PROVIDER = "cdn-a"
+SECONDARY_PROVIDER = "cdn-b"
+TERTIARY_PROVIDER = "cdn-c"
