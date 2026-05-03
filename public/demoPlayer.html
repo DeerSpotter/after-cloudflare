@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>MGP Streaming Demo</title>
+</head>
+<body>
+    <video id="video" controls autoplay style="width: 800px;"></video>
+
+    <script type="module">
+        import { MgpAbrMediaSourcePlayer } from "./mgpAbrMediaSourcePlayer.js";
+        import { MgpPeerClient } from "./peerClient.js";
+
+        const video = document.getElementById("video");
+
+        const peerClient = new MgpPeerClient({
+            trackerUrl: location.origin
+        });
+
+        const player = new MgpAbrMediaSourcePlayer({
+            videoElement: video,
+            manifestUrl: "/manifest",
+            peerProtocols: []
+        });
+
+        await player.start();
+
+        setInterval(() => {
+            console.log(player.snapshot());
+        }, 2000);
+    </script>
+</body>
+</html>
