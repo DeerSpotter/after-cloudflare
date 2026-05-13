@@ -1,3 +1,3 @@
-module github.com/DeerSpotter/open-edge-router
+module github.com/DeerSpotter/after-cloudflare
 
 go 1.22
