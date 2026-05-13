@@ -53,7 +53,7 @@ const server = http.createServer(async (incoming, outgoing) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-    console.log("Open Edge Router local runner");
+    console.log("After Cloudflare local edge runner");
     console.log("Listening on http://127.0.0.1:" + PORT);
     console.log("Try http://127.0.0.1:" + PORT + "/health");
     console.log("Try http://127.0.0.1:" + PORT + "/manifest?path=/video/test/v1/seg_00001.m4s");
