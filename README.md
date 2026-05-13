@@ -10,6 +10,15 @@ A build.
 
 An open source edge router and runtime for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
 
+## Start Here
+
+* `QUICKSTART.md` explains how to run the local runtime, tests, and simulator.
+* `ROADMAP.md` breaks the project into contributor ready modules.
+* `ARCHITECTURE.md` explains request flow, provider selection, health, manifests, and peer fallback.
+* `CONTRIBUTING.md` explains how to contribute without needing private context.
+* `SECURITY.md` explains trust boundaries, peer rules, provider routing rules, and secret handling.
+* `CODE_OF_CONDUCT.md` keeps the project sharp without letting it become personal.
+
 ## Core Idea
 
 Most websites depend on one edge provider for DNS, TLS, WAF, caching, routing, and DDoS protection. That creates a single operational and policy failure point.
@@ -30,6 +39,37 @@ Origin Storage
 ```
 
 If one CDN fails, blocks traffic, rate limits the site, or becomes unreachable, traffic can route around it.
+
+## Current Build
+
+```text
+src/          Worker runtime prototype
+services/     Go control plane scaffold
+public/       Browser side peer logic
+scripts/      Local runner and simulation tools
+tests/        Node test suite
+```
+
+Local checks:
+
+```bash
+npm install
+npm test
+go test ./...
+go build ./...
+```
+
+Local runner:
+
+```bash
+npm run local
+```
+
+Simulator:
+
+```bash
+npm run simulate
+```
 
 ## Design Goals
 
