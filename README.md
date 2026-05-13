@@ -1,14 +1,20 @@
-# Open Edge Router
+# After Cloudflare
 
-Open Edge Router is a resilient edge delivery architecture inspired by modern CDN and edge worker patterns. It routes content across multiple CDN providers, origin storage, and optional peer assisted delivery so that no single edge provider becomes a hard dependency.
+After Cloudflare is for the engineers who built the edge, kept it alive, carried the pager, solved the incidents, and then got told they were expendable.
 
-This project is not a replacement for Cloudflare, Fastly, Akamai, or CloudFront. It is a provider neutral control layer and reference implementation for building a parallel edge network with failover, health checks, signed content paths, immutable chunk delivery, and optional censorship resistant access paths.
+This project gives that anger somewhere useful to go.
+
+Not a rant. Not a boycott. Not a revenge repo.
+
+A build.
+
+An open source edge router and runtime for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
 
 ## Core Idea
 
 Most websites depend on one edge provider for DNS, TLS, WAF, caching, routing, and DDoS protection. That creates a single operational and policy failure point.
 
-Open Edge Router separates those functions.
+After Cloudflare separates those functions.
 
 ```text
 User
