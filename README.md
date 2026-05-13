@@ -14,6 +14,7 @@ An open source edge router and runtime for programmable request handling, multi 
 
 * `QUICKSTART.md` explains how to run the local runtime, tests, and simulator.
 * `ROADMAP.md` breaks the project into contributor ready modules.
+* `MILESTONES.md` defines the build phases and exit criteria.
 * `ARCHITECTURE.md` explains request flow, provider selection, health, manifests, and peer fallback.
 * `CONTRIBUTING.md` explains how to contribute without needing private context.
 * `SECURITY.md` explains trust boundaries, peer rules, provider routing rules, and secret handling.
