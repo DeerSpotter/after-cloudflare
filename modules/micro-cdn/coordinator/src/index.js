@@ -280,6 +280,34 @@ async function handleAdvertiseContent(req, res) {
   sendJson(res, 200, { ok: true, contentId: body.contentId, nodeId: body.nodeId });
 }
 
+async function handleUnadvertiseContent(req, res) {
+  const body = await readJson(req);
+  if (!requiredString(body.nodeId) || !requiredString(body.contentId)) {
+    sendJson(res, 400, { error: 'nodeId and contentId are required' });
+    return;
+  }
+
+  if (!nodes.has(body.nodeId)) {
+    sendJson(res, 404, { error: 'node is not registered' });
+    return;
+  }
+
+  const nodeSet = contentNodes.get(body.contentId);
+  const removed = nodeSet ? nodeSet.delete(body.nodeId) : false;
+
+  if (nodeSet && nodeSet.size === 0) {
+    contentNodes.delete(body.contentId);
+  }
+
+  const node = nodes.get(body.nodeId);
+  node.cachedFiles = Math.max(0, node.cachedFiles - (removed ? 1 : 0));
+  node.lastSeenMs = Date.now();
+  node.lastSeen = nowIso();
+
+  await queueSaveState();
+  sendJson(res, 200, { ok: true, removed, contentId: body.contentId, nodeId: body.nodeId });
+}
+
 function handleRoute(url, res) {
   const contentId = url.searchParams.get('contentId');
   if (!requiredString(contentId)) {
@@ -370,6 +398,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/content/advertise') {
       await handleAdvertiseContent(req, res);
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/content/unadvertise') {
+      await handleUnadvertiseContent(req, res);
       return;
     }
 
