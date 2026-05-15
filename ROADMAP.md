@@ -12,6 +12,10 @@ Path: `src/`
 
 Purpose: Request handling, route selection, provider failover, manifest generation, and peer fallback responses.
 
+Input: Incoming HTTP requests, provider configuration, manifest data, health state, and peer availability.
+
+Output: Routed responses, failover decisions, generated manifests, and peer fallback responses.
+
 Status: Active prototype.
 
 Beginner tasks:
@@ -31,6 +35,10 @@ Advanced tasks:
 Path: `services/`
 
 Purpose: Future services for health checks, route scoring, observability, and distributed control.
+
+Input: Provider probe targets, runtime health reports, node reports, and route scoring configuration.
+
+Output: Structured health results, route scores, observability data, and control plane APIs.
 
 Status: Early Go scaffold.
 
@@ -52,6 +60,10 @@ Paths: `public/`, `src/peer/`, `scripts/simulate-network.mjs`
 
 Purpose: Peer fallback for immutable chunks when CDN routes are unavailable or degraded.
 
+Input: Immutable chunk requests, peer availability, manifest hashes, and CDN failure signals.
+
+Output: Verified chunk responses, peer fallback attempts, simulator results, and peer health decisions.
+
 Status: Scheduler and simulator exist. WebRTC transport is still open.
 
 Beginner tasks:
@@ -71,6 +83,10 @@ Advanced tasks:
 Path: `src/mgp/`
 
 Purpose: Define how assets, chunks, provider URLs, hashes, and signatures are represented.
+
+Input: Asset paths, provider URLs, chunk metadata, hashes, generated time, and optional signature metadata.
+
+Output: Versioned manifests, normalized content paths, integrity metadata, and verification inputs.
 
 Status: Basic manifest generation exists. Signed verification is not complete.
 
@@ -92,6 +108,10 @@ Path: `src/routing/providerFetch.js`
 
 Purpose: Translate incoming requests into provider specific fetches while preserving safe headers and routing metadata.
 
+Input: Selected provider, request path, query string, safe request headers, timeout policy, and routing metadata.
+
+Output: Provider fetch requests, normalized provider responses, provider failure signals, and preserved path behavior.
+
 Status: Basic adapter exists.
 
 Beginner tasks:
@@ -111,6 +131,10 @@ Advanced tasks:
 Paths: `SECURITY.md`, future `src/security/`
 
 Purpose: Keep the system useful without becoming an abuse platform.
+
+Input: Trust boundaries, content approval rules, peer behavior, provider routing rules, and reported abuse cases.
+
+Output: Security policy, enforcement checks, rejected unsafe behavior, and contributor guidance.
 
 Status: Policy document first. Enforcement modules later.
 
