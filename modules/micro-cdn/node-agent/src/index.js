@@ -11,6 +11,13 @@ const metrics = {
   cacheHits: 0,
   bytesServed: 0
 };
+const manifest = new Map();
+let manifestFile = '';
+let saveChain = Promise.resolve();
+
+function nowIso() {
+  return new Date().toISOString();
+}
 
 function sendJson(res, statusCode, payload) {
   const body = JSON.stringify(payload, null, 2);
@@ -76,7 +83,9 @@ async function loadConfig() {
   config.port = Number.parseInt(String(config.port || 8081), 10);
   config.heartbeatSeconds = Number.parseInt(String(config.heartbeatSeconds || 10), 10);
   config.cacheDir = config.cacheDir || './cache';
+  config.manifestFile = config.manifestFile || path.join(config.cacheDir, 'manifest.json');
   config.publicAddress = String(config.publicAddress || `http://127.0.0.1:${config.port}`).replace(/\/$/, '');
+  manifestFile = path.resolve(config.manifestFile);
   return config;
 }
 
@@ -88,13 +97,91 @@ function cacheFilePath(config, contentId) {
   return path.resolve(config.cacheDir, safeContentId(contentId));
 }
 
-async function countCachedFiles(config) {
+function manifestSnapshot() {
+  return {
+    version: 1,
+    savedAt: nowIso(),
+    cachedContent: [...manifest.values()]
+  };
+}
+
+async function saveManifestNow() {
+  await fs.mkdir(path.dirname(manifestFile), { recursive: true });
+  const tempFile = `${manifestFile}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(manifestSnapshot(), null, 2), 'utf8');
+  await fs.rename(tempFile, manifestFile);
+}
+
+function queueSaveManifest() {
+  saveChain = saveChain
+    .then(() => saveManifestNow())
+    .catch(err => {
+      console.error(`manifest save failed: ${err.message}`);
+    });
+  return saveChain;
+}
+
+async function loadManifest() {
   try {
-    const entries = await fs.readdir(config.cacheDir, { withFileTypes: true });
-    return entries.filter(entry => entry.isFile()).length;
-  } catch {
-    return 0;
+    const raw = await fs.readFile(manifestFile, 'utf8');
+    const data = JSON.parse(raw);
+    manifest.clear();
+    if (Array.isArray(data.cachedContent)) {
+      for (const item of data.cachedContent) {
+        if (typeof item.contentId === 'string' && item.contentId.length > 0) {
+          manifest.set(item.contentId, item);
+        }
+      }
+    }
+    console.log(`loaded node cache manifest from ${manifestFile}`);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      console.log(`no node cache manifest found at ${manifestFile}; starting empty`);
+      return;
+    }
+    throw err;
   }
+}
+
+async function reconcileManifest(config) {
+  let changed = false;
+  for (const [contentId, item] of manifest.entries()) {
+    try {
+      const stat = await fs.stat(item.filePath);
+      if (!stat.isFile()) {
+        manifest.delete(contentId);
+        changed = true;
+        continue;
+      }
+      item.sizeBytes = stat.size;
+      item.lastVerifiedAt = nowIso();
+    } catch {
+      manifest.delete(contentId);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await queueSaveManifest();
+  }
+}
+
+async function advertiseManifest(config) {
+  if (config.microCdnEnabled !== true) {
+    return;
+  }
+
+  for (const contentId of manifest.keys()) {
+    try {
+      await advertiseContent(config, contentId);
+    } catch (err) {
+      console.error(`manifest advertise failed for ${contentId}: ${err.message}`);
+    }
+  }
+}
+
+async function countCachedFiles() {
+  return manifest.size;
 }
 
 async function hashFile(filePath) {
@@ -125,7 +212,7 @@ async function reportHealth(config) {
     online: true,
     cacheHits: metrics.cacheHits,
     bytesServed: metrics.bytesServed,
-    cachedFiles: await countCachedFiles(config),
+    cachedFiles: await countCachedFiles(),
     uptimeSeconds: Math.floor((Date.now() - startedAtMs) / 1000)
   });
 }
@@ -152,12 +239,24 @@ async function cacheLocalFile(config, contentId, sourcePath, expectedSha256) {
     throw new Error(`hash mismatch for ${contentId}`);
   }
 
-  await advertiseContent(config, contentId);
-  return {
+  const stat = await fs.stat(destination);
+  const entry = {
     contentId,
+    safeName: safeContentId(contentId),
     sha256: actualSha256,
-    filePath: destination
+    filePath: destination,
+    sizeBytes: stat.size,
+    sourcePath: path.resolve(sourcePath),
+    cachedAt: nowIso(),
+    lastVerifiedAt: nowIso(),
+    hits: 0,
+    bytesServed: 0
   };
+
+  manifest.set(contentId, entry);
+  await queueSaveManifest();
+  await advertiseContent(config, contentId);
+  return entry;
 }
 
 async function serveCachedFile(config, contentId, res) {
@@ -166,10 +265,17 @@ async function serveCachedFile(config, contentId, res) {
     return;
   }
 
-  const filePath = cacheFilePath(config, contentId);
+  const entry = manifest.get(contentId);
+  if (!entry) {
+    sendJson(res, 404, { error: 'cached file is not in manifest' });
+    return;
+  }
+
   try {
-    const stat = await fs.stat(filePath);
+    const stat = await fs.stat(entry.filePath);
     if (!stat.isFile()) {
+      manifest.delete(contentId);
+      await queueSaveManifest();
       sendJson(res, 404, { error: 'cached file not found' });
       return;
     }
@@ -177,15 +283,21 @@ async function serveCachedFile(config, contentId, res) {
     res.writeHead(200, {
       'content-type': 'application/octet-stream',
       'content-length': stat.size,
-      'cache-control': 'public, max-age=60'
+      'cache-control': 'public, max-age=60',
+      'x-after-cloudflare-content-id': contentId,
+      'x-after-cloudflare-sha256': entry.sha256
     });
 
-    const stream = fsSync.createReadStream(filePath);
+    const stream = fsSync.createReadStream(entry.filePath);
     stream.on('data', chunk => {
       metrics.bytesServed += chunk.length;
+      entry.bytesServed += chunk.length;
     });
     stream.on('end', () => {
       metrics.cacheHits += 1;
+      entry.hits += 1;
+      entry.lastServedAt = nowIso();
+      queueSaveManifest();
     });
     stream.on('error', () => {
       if (!res.headersSent) {
@@ -196,6 +308,8 @@ async function serveCachedFile(config, contentId, res) {
     });
     stream.pipe(res);
   } catch {
+    manifest.delete(contentId);
+    await queueSaveManifest();
     sendJson(res, 404, { error: 'cached file not found' });
   }
 }
@@ -203,6 +317,8 @@ async function serveCachedFile(config, contentId, res) {
 async function main() {
   const config = await loadConfig();
   await fs.mkdir(config.cacheDir, { recursive: true });
+  await loadManifest();
+  await reconcileManifest(config);
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -219,9 +335,14 @@ async function main() {
           microCdnEnabled: config.microCdnEnabled === true,
           cacheHits: metrics.cacheHits,
           bytesServed: metrics.bytesServed,
-          cachedFiles: await countCachedFiles(config),
+          cachedFiles: await countCachedFiles(),
           uptimeSeconds: Math.floor((Date.now() - startedAtMs) / 1000)
         });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname === '/manifest') {
+        sendJson(res, 200, manifestSnapshot());
         return;
       }
 
@@ -250,8 +371,10 @@ async function main() {
 
   server.listen(config.port, async () => {
     console.log(`micro cdn node agent listening on ${config.publicAddress}`);
+    console.log(`node cache manifest: ${manifestFile}`);
     try {
       await registerNode(config);
+      await advertiseManifest(config);
       await reportHealth(config);
       setInterval(() => {
         reportHealth(config).catch(err => {
