@@ -59,9 +59,66 @@ function requiredString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function cleanPathSegment(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+/g, '/')
+    .split('/')
+    .filter(segment => segment.length > 0 && segment !== '.' && segment !== '..')
+    .join('/');
+}
+
+function normalizeNamespace(value) {
+  const namespace = cleanPathSegment(value || 'default');
+  return namespace.length > 0 ? namespace : 'default';
+}
+
+function normalizeDisplayPath(value, fallbackContentId) {
+  const displayPath = cleanPathSegment(value || fallbackContentId);
+  return displayPath.length > 0 ? displayPath : cleanPathSegment(fallbackContentId);
+}
+
+function buildPublicPath(namespace, displayPath) {
+  return `/mcdn/${normalizeNamespace(namespace)}/${normalizeDisplayPath(displayPath, 'asset')}`;
+}
+
+function normalizeContentKey(value) {
+  if (!requiredString(value)) {
+    return '';
+  }
+
+  const text = String(value).trim();
+  if (text.startsWith('/mcdn/')) {
+    return cleanPathSegment(text.slice('/mcdn/'.length));
+  }
+
+  return cleanPathSegment(text);
+}
+
+function findContent(contentKey) {
+  const normalized = normalizeContentKey(contentKey);
+  if (!requiredString(normalized)) {
+    return null;
+  }
+
+  if (approvedContent.has(normalized)) {
+    return approvedContent.get(normalized);
+  }
+
+  for (const content of approvedContent.values()) {
+    if (normalizeContentKey(content.publicPath) === normalized) {
+      return content;
+    }
+  }
+
+  return null;
+}
+
 function snapshotState() {
   return {
-    version: 1,
+    version: 2,
     savedAt: nowIso(),
     nodes: [...nodes.values()],
     approvedContent: [...approvedContent.values()],
@@ -111,7 +168,16 @@ async function loadState() {
     if (Array.isArray(state.approvedContent)) {
       for (const content of state.approvedContent) {
         if (requiredString(content.contentId)) {
-          approvedContent.set(content.contentId, content);
+          const namespace = normalizeNamespace(content.namespace || 'default');
+          const displayPath = normalizeDisplayPath(content.displayPath || content.contentId, content.contentId);
+          const contentId = normalizeContentKey(content.contentId);
+          approvedContent.set(contentId, {
+            ...content,
+            contentId,
+            namespace,
+            displayPath,
+            publicPath: content.publicPath || buildPublicPath(namespace, displayPath)
+          });
         }
       }
     }
@@ -119,7 +185,7 @@ async function loadState() {
     if (Array.isArray(state.contentNodes)) {
       for (const mapping of state.contentNodes) {
         if (requiredString(mapping.contentId) && Array.isArray(mapping.nodeIds)) {
-          contentNodes.set(mapping.contentId, new Set(mapping.nodeIds.filter(requiredString)));
+          contentNodes.set(normalizeContentKey(mapping.contentId), new Set(mapping.nodeIds.filter(requiredString)));
         }
       }
     }
@@ -155,7 +221,8 @@ function cleanupStaleNodes() {
 
 function pickNodeForContent(contentId) {
   cleanupStaleNodes();
-  const nodeSet = contentNodes.get(contentId);
+  const contentKey = normalizeContentKey(contentId);
+  const nodeSet = contentNodes.get(contentKey);
   if (!nodeSet || nodeSet.size === 0) {
     return null;
   }
@@ -232,11 +299,21 @@ async function handleApproveContent(req, res) {
     return;
   }
 
-  const existing = approvedContent.get(body.contentId);
+  const namespace = normalizeNamespace(body.namespace || 'default');
+  const displayPath = normalizeDisplayPath(body.displayPath || body.contentId, body.contentId);
+  const contentId = normalizeContentKey(body.contentId);
+  const publicPath = body.publicPath ? `/${cleanPathSegment(body.publicPath)}` : buildPublicPath(namespace, displayPath);
+  const existing = approvedContent.get(contentId);
   const content = {
-    contentId: body.contentId,
+    contentId,
+    namespace,
+    displayPath,
+    publicPath,
     sha256: body.sha256.toLowerCase(),
     url: body.url,
+    originUrl: body.originUrl || body.url,
+    sizeBytes: Number.isFinite(body.sizeBytes) ? body.sizeBytes : null,
+    contentType: requiredString(body.contentType) ? body.contentType : 'application/octet-stream',
     maxAgeSeconds: Number.isFinite(body.maxAgeSeconds) ? body.maxAgeSeconds : 86400,
     createdAt: existing ? existing.createdAt : nowIso(),
     updatedAt: nowIso()
@@ -259,15 +336,16 @@ async function handleAdvertiseContent(req, res) {
     return;
   }
 
-  if (!approvedContent.has(body.contentId)) {
+  const content = findContent(body.contentId);
+  if (!content) {
     sendJson(res, 403, { error: 'content is not approved' });
     return;
   }
 
-  let nodeSet = contentNodes.get(body.contentId);
+  let nodeSet = contentNodes.get(content.contentId);
   if (!nodeSet) {
     nodeSet = new Set();
-    contentNodes.set(body.contentId, nodeSet);
+    contentNodes.set(content.contentId, nodeSet);
   }
   nodeSet.add(body.nodeId);
 
@@ -277,7 +355,7 @@ async function handleAdvertiseContent(req, res) {
   node.lastSeen = nowIso();
 
   await queueSaveState();
-  sendJson(res, 200, { ok: true, contentId: body.contentId, nodeId: body.nodeId });
+  sendJson(res, 200, { ok: true, contentId: content.contentId, publicPath: content.publicPath, nodeId: body.nodeId });
 }
 
 async function handleUnadvertiseContent(req, res) {
@@ -292,11 +370,13 @@ async function handleUnadvertiseContent(req, res) {
     return;
   }
 
-  const nodeSet = contentNodes.get(body.contentId);
+  const content = findContent(body.contentId);
+  const contentId = content ? content.contentId : normalizeContentKey(body.contentId);
+  const nodeSet = contentNodes.get(contentId);
   const removed = nodeSet ? nodeSet.delete(body.nodeId) : false;
 
   if (nodeSet && nodeSet.size === 0) {
-    contentNodes.delete(body.contentId);
+    contentNodes.delete(contentId);
   }
 
   const node = nodes.get(body.nodeId);
@@ -305,35 +385,38 @@ async function handleUnadvertiseContent(req, res) {
   node.lastSeen = nowIso();
 
   await queueSaveState();
-  sendJson(res, 200, { ok: true, removed, contentId: body.contentId, nodeId: body.nodeId });
+  sendJson(res, 200, { ok: true, removed, contentId, nodeId: body.nodeId });
 }
 
 function handleRoute(url, res) {
-  const contentId = url.searchParams.get('contentId');
-  if (!requiredString(contentId)) {
-    sendJson(res, 400, { error: 'contentId query parameter is required' });
+  const requested = url.searchParams.get('contentId') || url.searchParams.get('path');
+  if (!requiredString(requested)) {
+    sendJson(res, 400, { error: 'contentId or path query parameter is required' });
     return;
   }
 
-  const content = approvedContent.get(contentId);
+  const content = findContent(requested);
   if (!content) {
     sendJson(res, 404, { error: 'content is not approved' });
     return;
   }
 
-  const node = pickNodeForContent(contentId);
+  const node = pickNodeForContent(content.contentId);
   if (!node) {
     sendJson(res, 404, { error: 'no healthy node currently serves this content' });
     return;
   }
 
   sendJson(res, 200, {
-    contentId,
+    contentId: content.contentId,
+    namespace: content.namespace,
+    displayPath: content.displayPath,
+    publicPath: content.publicPath,
     sha256: content.sha256,
     selectedNode: {
       nodeId: node.nodeId,
       region: node.region,
-      downloadUrl: `${node.publicAddress}/cache/${encodeURIComponent(contentId)}`
+      downloadUrl: `${node.publicAddress}${content.publicPath}`
     }
   });
 }
