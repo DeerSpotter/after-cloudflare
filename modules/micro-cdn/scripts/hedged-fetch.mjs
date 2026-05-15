@@ -77,25 +77,40 @@ async function fetchCandidate(candidate, routePlan) {
     ? candidate.firstByteTimeoutMs
     : routePlan.firstByteTimeoutMs;
 
-  const timeoutPromise = sleep(timeoutMs).then(() => {
+  let resultReported = false;
+
+  async function reportOnce(success, timeout, firstByteMs) {
+    if (resultReported) {
+      return;
+    }
+    resultReported = true;
+    await reportNode(candidate, success, timeout, firstByteMs);
+  }
+
+  const timeoutPromise = sleep(timeoutMs).then(async () => {
+    await reportOnce(false, true, performance.now() - startedAt);
     throw new Error('first byte timeout');
   });
 
   const fetchPromise = fetch(candidate.downloadUrl).then(async response => {
     const firstByteMs = performance.now() - startedAt;
+    if (resultReported) {
+      throw new Error('candidate result ignored after timeout');
+    }
+
     if (!response.ok) {
-      await reportNode(candidate, false, false, firstByteMs);
+      await reportOnce(false, false, firstByteMs);
       throw new Error(`${candidate.nodeId} returned HTTP ${response.status}`);
     }
 
     const buffer = await response.arrayBuffer();
     const actualHash = sha256(buffer);
     if (actualHash !== routePlan.sha256) {
-      await reportNode(candidate, false, false, firstByteMs);
+      await reportOnce(false, false, firstByteMs);
       throw new Error(`${candidate.nodeId} returned SHA256 ${actualHash}`);
     }
 
-    await reportNode(candidate, true, false, firstByteMs);
+    await reportOnce(true, false, firstByteMs);
     return {
       candidate,
       firstByteMs,
@@ -103,15 +118,14 @@ async function fetchCandidate(candidate, routePlan) {
       sha256: actualHash,
       bytes: buffer.byteLength
     };
+  }).catch(async err => {
+    if (!resultReported) {
+      await reportOnce(false, false, performance.now() - startedAt);
+    }
+    throw err;
   });
 
-  try {
-    return await Promise.race([fetchPromise, timeoutPromise]);
-  } catch (err) {
-    const timeout = err instanceof Error && err.message === 'first byte timeout';
-    await reportNode(candidate, false, timeout, performance.now() - startedAt);
-    throw err;
-  }
+  return Promise.race([fetchPromise, timeoutPromise]);
 }
 
 async function hedgedFetch(routePlan) {
@@ -120,12 +134,12 @@ async function hedgedFetch(routePlan) {
     throw new Error('route plan did not include candidates');
   }
 
-  const attempts = candidates.map(candidate => fetchCandidate(candidate, routePlan));
+  const attempts = Promise.any(candidates.map(candidate => fetchCandidate(candidate, routePlan)));
   const deadline = sleep(routePlan.deadlineMs || deadlineMs).then(() => {
     throw new Error('deadline exceeded');
   });
 
-  return Promise.any([...attempts, deadline]);
+  return Promise.race([attempts, deadline]);
 }
 
 async function writeOutput(result) {
