@@ -16,6 +16,7 @@ An open source edge router and runtime for programmable request handling, multi 
 * `ROADMAP.md` breaks the project into contributor ready modules.
 * `MILESTONES.md` defines the build phases and exit criteria.
 * `ARCHITECTURE.md` explains request flow, provider selection, health, manifests, and peer fallback.
+* `modules/micro-cdn/README.md` explains the optional community micro CDN prototype.
 * `CONTRIBUTING.md` explains how to contribute without needing private context.
 * `SECURITY.md` explains trust boundaries, peer rules, provider routing rules, and secret handling.
 * `CODE_OF_CONDUCT.md` keeps the project sharp without letting it become personal.
@@ -40,6 +41,48 @@ Origin Storage
 ```
 
 If one CDN fails, blocks traffic, rate limits the site, or becomes unreachable, traffic can route around it.
+
+## Optional Micro CDN Module
+
+After Cloudflare also includes an optional micro CDN prototype under `modules/micro-cdn`.
+
+The micro CDN module lets a node operator explicitly opt in to caching and serving approved public static files. It is not an exit node, not arbitrary proxying, and not private traffic inspection.
+
+The current prototype supports:
+
+```text
+approve public content path
+cache local file
+verify SHA256
+store cached bytes by hash
+advertise content to coordinator
+route by public /mcdn path
+serve cached content from node
+persist coordinator state
+persist node manifest
+delete cached content
+unadvertise deleted content
+```
+
+The public path model is:
+
+```text
+/mcdn/{namespace}/{displayPath}
+```
+
+Example:
+
+```text
+/mcdn/demo/hello.txt
+```
+
+Internally, nodes store bytes by hash:
+
+```text
+cache/sha256/{first-two-hash-chars}/{full-sha256}
+```
+
+This keeps the user facing path readable while making the hash the source of truth.
 
 ## Current Build
 
