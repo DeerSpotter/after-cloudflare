@@ -10,6 +10,8 @@ It is intentionally simple:
 4. Caches approved local files
 5. Serves cached files from disk
 6. Advertises cached content back to the coordinator
+7. Persists a local cache manifest
+8. Re advertises cached content after restart
 
 ## Run
 
@@ -36,6 +38,47 @@ On Windows PowerShell:
 ```powershell
 $env:CONFIG = "./config.local.json"
 npm start
+```
+
+## Persistent cache manifest
+
+Default manifest file:
+
+```text
+./cache/manifest.json
+```
+
+The manifest stores:
+
+1. Content ID
+2. Safe local file name
+3. SHA256 hash
+4. Cached file path
+5. File size
+6. Source path
+7. Cached time
+8. Last verified time
+9. Hit count
+10. Bytes served
+
+On startup, the node:
+
+1. Loads the manifest
+2. Checks that cached files still exist
+3. Removes missing files from the manifest
+4. Registers with the coordinator
+5. Re advertises cached content
+
+## View manifest
+
+```bash
+curl http://127.0.0.1:8081/manifest
+```
+
+Windows PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8081/manifest"
 ```
 
 ## Cache a local file
