@@ -1,0 +1,1 @@
+{"name":"after-cloudflare-micro-cdn-node-agent","version":"0.1.0","description":"Boring prototype node agent for the optional micro CDN module.","type":"module","private":true,"scripts":{"start":"node src/index.js"},"engines":{"node":">=20"},"dependencies":{}}
