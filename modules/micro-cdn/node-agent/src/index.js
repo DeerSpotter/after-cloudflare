@@ -89,17 +89,63 @@ async function loadConfig() {
   return config;
 }
 
-function safeContentId(contentId) {
+function cleanPathSegment(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+/g, '/')
+    .split('/')
+    .filter(segment => segment.length > 0 && segment !== '.' && segment !== '..')
+    .join('/');
+}
+
+function normalizeNamespace(value) {
+  const namespace = cleanPathSegment(value || 'default');
+  return namespace.length > 0 ? namespace : 'default';
+}
+
+function normalizeDisplayPath(value, fallbackContentId) {
+  const displayPath = cleanPathSegment(value || fallbackContentId);
+  return displayPath.length > 0 ? displayPath : cleanPathSegment(fallbackContentId);
+}
+
+function normalizeContentKey(value) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return '';
+  }
+
+  const text = value.trim();
+  if (text.startsWith('/mcdn/')) {
+    return cleanPathSegment(text.slice('/mcdn/'.length));
+  }
+
+  return cleanPathSegment(text);
+}
+
+function buildPublicPath(namespace, displayPath) {
+  return `/mcdn/${normalizeNamespace(namespace)}/${normalizeDisplayPath(displayPath, 'asset')}`;
+}
+
+function legacySafeContentId(contentId) {
   return String(contentId).replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-function cacheFilePath(config, contentId) {
-  return path.resolve(config.cacheDir, safeContentId(contentId));
+function hashStoragePath(config, sha256) {
+  const cleanHash = String(sha256 || '').toLowerCase().replace(/[^a-f0-9]/g, '');
+  if (cleanHash.length < 4) {
+    throw new Error('valid sha256 is required for hash storage');
+  }
+  return path.resolve(config.cacheDir, 'sha256', cleanHash.slice(0, 2), cleanHash);
+}
+
+function legacyCacheFilePath(config, contentId) {
+  return path.resolve(config.cacheDir, legacySafeContentId(contentId));
 }
 
 function manifestSnapshot() {
   return {
-    version: 1,
+    version: 2,
     savedAt: nowIso(),
     cachedContent: [...manifest.values()]
   };
@@ -121,6 +167,37 @@ function queueSaveManifest() {
   return saveChain;
 }
 
+function normalizeManifestEntry(item) {
+  const contentId = normalizeContentKey(item.contentId || item.publicPath || '');
+  const namespace = normalizeNamespace(item.namespace || 'default');
+  const displayPath = normalizeDisplayPath(item.displayPath || contentId, contentId);
+  const publicPath = item.publicPath || buildPublicPath(namespace, displayPath);
+  return {
+    ...item,
+    contentId,
+    namespace,
+    displayPath,
+    publicPath,
+    safeName: item.safeName || legacySafeContentId(contentId),
+    filePath: item.filePath
+  };
+}
+
+function findManifestEntry(contentKey) {
+  const normalized = normalizeContentKey(contentKey);
+  if (manifest.has(normalized)) {
+    return manifest.get(normalized);
+  }
+
+  for (const entry of manifest.values()) {
+    if (normalizeContentKey(entry.publicPath) === normalized) {
+      return entry;
+    }
+  }
+
+  return null;
+}
+
 async function loadManifest() {
   try {
     const raw = await fs.readFile(manifestFile, 'utf8');
@@ -128,8 +205,9 @@ async function loadManifest() {
     manifest.clear();
     if (Array.isArray(data.cachedContent)) {
       for (const item of data.cachedContent) {
-        if (typeof item.contentId === 'string' && item.contentId.length > 0) {
-          manifest.set(item.contentId, item);
+        const entry = normalizeManifestEntry(item);
+        if (entry.contentId.length > 0) {
+          manifest.set(entry.contentId, entry);
         }
       }
     }
@@ -171,11 +249,11 @@ async function advertiseManifest(config) {
     return;
   }
 
-  for (const contentId of manifest.keys()) {
+  for (const entry of manifest.values()) {
     try {
-      await advertiseContent(config, contentId);
+      await advertiseContent(config, entry.contentId);
     } catch (err) {
-      console.error(`manifest advertise failed for ${contentId}: ${err.message}`);
+      console.error(`manifest advertise failed for ${entry.contentId}: ${err.message}`);
     }
   }
 }
@@ -231,29 +309,49 @@ async function unadvertiseContent(config, contentId) {
   });
 }
 
-async function cacheLocalFile(config, contentId, sourcePath, expectedSha256) {
+async function cacheLocalFile(config, requestBody) {
   if (config.microCdnEnabled !== true) {
     throw new Error('micro CDN mode is disabled');
   }
 
-  await fs.mkdir(config.cacheDir, { recursive: true });
-  const destination = cacheFilePath(config, contentId);
-  await fs.copyFile(sourcePath, destination);
+  const sourcePath = requestBody.sourcePath;
+  if (!sourcePath) {
+    throw new Error('sourcePath is required');
+  }
 
-  const actualSha256 = await hashFile(destination);
-  if (expectedSha256 && actualSha256.toLowerCase() !== expectedSha256.toLowerCase()) {
-    await fs.rm(destination, { force: true });
+  const namespace = normalizeNamespace(requestBody.namespace || 'default');
+  const displayPath = normalizeDisplayPath(requestBody.displayPath || requestBody.contentId, requestBody.contentId || path.basename(sourcePath));
+  const contentId = normalizeContentKey(requestBody.contentId || `${namespace}/${displayPath}`);
+  const publicPath = requestBody.publicPath || buildPublicPath(namespace, displayPath);
+
+  await fs.mkdir(config.cacheDir, { recursive: true });
+  const tempDestination = legacyCacheFilePath(config, `${contentId}.tmp`);
+  await fs.copyFile(sourcePath, tempDestination);
+
+  const actualSha256 = await hashFile(tempDestination);
+  if (requestBody.sha256 && actualSha256.toLowerCase() !== String(requestBody.sha256).toLowerCase()) {
+    await fs.rm(tempDestination, { force: true });
     throw new Error(`hash mismatch for ${contentId}`);
   }
+
+  const destination = hashStoragePath(config, actualSha256);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.rename(tempDestination, destination);
 
   const stat = await fs.stat(destination);
   const entry = {
     contentId,
-    safeName: safeContentId(contentId),
+    namespace,
+    displayPath,
+    publicPath,
+    safeName: legacySafeContentId(contentId),
     sha256: actualSha256,
     filePath: destination,
+    localCachePath: destination,
     sizeBytes: stat.size,
     sourcePath: path.resolve(sourcePath),
+    originUrl: requestBody.originUrl || requestBody.url || `local-file://${path.resolve(sourcePath)}`,
+    contentType: requestBody.contentType || 'application/octet-stream',
     cachedAt: nowIso(),
     lastVerifiedAt: nowIso(),
     hits: 0,
@@ -266,9 +364,10 @@ async function cacheLocalFile(config, contentId, sourcePath, expectedSha256) {
   return entry;
 }
 
-async function deleteCachedFile(config, contentId) {
-  const entry = manifest.get(contentId);
-  const targetPath = entry ? entry.filePath : cacheFilePath(config, contentId);
+async function deleteCachedFile(config, contentKey) {
+  const entry = findManifestEntry(contentKey);
+  const contentId = entry ? entry.contentId : normalizeContentKey(contentKey);
+  const targetPath = entry ? entry.filePath : legacyCacheFilePath(config, contentId);
 
   await fs.rm(targetPath, { force: true });
   const hadManifestEntry = manifest.delete(contentId);
@@ -286,19 +385,20 @@ async function deleteCachedFile(config, contentId) {
 
   return {
     contentId,
+    publicPath: entry ? entry.publicPath : null,
     deletedFile: true,
     removedManifestEntry: hadManifestEntry,
     unadvertiseResult
   };
 }
 
-async function serveCachedFile(config, contentId, res) {
+async function serveCachedFile(config, contentKey, res) {
   if (config.microCdnEnabled !== true) {
     sendJson(res, 403, { error: 'micro CDN mode is disabled' });
     return;
   }
 
-  const entry = manifest.get(contentId);
+  const entry = findManifestEntry(contentKey);
   if (!entry) {
     sendJson(res, 404, { error: 'cached file is not in manifest' });
     return;
@@ -307,17 +407,18 @@ async function serveCachedFile(config, contentId, res) {
   try {
     const stat = await fs.stat(entry.filePath);
     if (!stat.isFile()) {
-      manifest.delete(contentId);
+      manifest.delete(entry.contentId);
       await queueSaveManifest();
       sendJson(res, 404, { error: 'cached file not found' });
       return;
     }
 
     res.writeHead(200, {
-      'content-type': 'application/octet-stream',
+      'content-type': entry.contentType || 'application/octet-stream',
       'content-length': stat.size,
       'cache-control': 'public, max-age=60',
-      'x-after-cloudflare-content-id': contentId,
+      'x-after-cloudflare-content-id': entry.contentId,
+      'x-after-cloudflare-public-path': entry.publicPath,
       'x-after-cloudflare-sha256': entry.sha256
     });
 
@@ -341,7 +442,7 @@ async function serveCachedFile(config, contentId, res) {
     });
     stream.pipe(res);
   } catch {
-    manifest.delete(contentId);
+    manifest.delete(entry.contentId);
     await queueSaveManifest();
     sendJson(res, 404, { error: 'cached file not found' });
   }
@@ -381,12 +482,27 @@ async function main() {
 
       if (req.method === 'POST' && url.pathname === '/cache/local-file') {
         const body = await readJson(req);
-        if (!body.contentId || !body.sourcePath) {
-          sendJson(res, 400, { error: 'contentId and sourcePath are required' });
+        if (!body.contentId && !body.displayPath) {
+          sendJson(res, 400, { error: 'contentId or displayPath is required' });
           return;
         }
-        const result = await cacheLocalFile(config, body.contentId, body.sourcePath, body.sha256);
+        if (!body.sourcePath) {
+          sendJson(res, 400, { error: 'sourcePath is required' });
+          return;
+        }
+        const result = await cacheLocalFile(config, body);
         sendJson(res, 200, { ok: true, result });
+        return;
+      }
+
+      if (req.method === 'DELETE' && url.pathname.startsWith('/mcdn/')) {
+        const result = await deleteCachedFile(config, url.pathname);
+        sendJson(res, 200, { ok: true, result });
+        return;
+      }
+
+      if (req.method === 'GET' && url.pathname.startsWith('/mcdn/')) {
+        await serveCachedFile(config, url.pathname, res);
         return;
       }
 
