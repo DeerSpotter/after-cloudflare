@@ -1,12 +1,17 @@
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import path from 'node:path';
 import { URL } from 'node:url';
 
 const port = Number.parseInt(process.env.PORT || '8080', 10);
 const nodeTtlMs = Number.parseInt(process.env.NODE_TTL_MS || '30000', 10);
+const dataDir = process.env.DATA_DIR || './data';
+const stateFile = process.env.STATE_FILE || path.join(dataDir, 'coordinator-state.json');
 
 const nodes = new Map();
 const approvedContent = new Map();
 const contentNodes = new Map();
+let saveChain = Promise.resolve();
 
 function nowIso() {
   return new Date().toISOString();
@@ -54,15 +59,97 @@ function requiredString(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function snapshotState() {
+  return {
+    version: 1,
+    savedAt: nowIso(),
+    nodes: [...nodes.values()],
+    approvedContent: [...approvedContent.values()],
+    contentNodes: [...contentNodes.entries()].map(([contentId, nodeSet]) => ({
+      contentId,
+      nodeIds: [...nodeSet]
+    }))
+  };
+}
+
+async function saveStateNow() {
+  await fs.mkdir(path.dirname(stateFile), { recursive: true });
+  const tempFile = `${stateFile}.tmp`;
+  await fs.writeFile(tempFile, JSON.stringify(snapshotState(), null, 2), 'utf8');
+  await fs.rename(tempFile, stateFile);
+}
+
+function queueSaveState() {
+  saveChain = saveChain
+    .then(() => saveStateNow())
+    .catch(err => {
+      console.error(`state save failed: ${err.message}`);
+    });
+  return saveChain;
+}
+
+async function loadState() {
+  try {
+    const raw = await fs.readFile(stateFile, 'utf8');
+    const state = JSON.parse(raw);
+
+    nodes.clear();
+    approvedContent.clear();
+    contentNodes.clear();
+
+    if (Array.isArray(state.nodes)) {
+      for (const node of state.nodes) {
+        if (requiredString(node.nodeId)) {
+          nodes.set(node.nodeId, {
+            ...node,
+            lastSeenMs: Number.isFinite(node.lastSeenMs) ? node.lastSeenMs : 0
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(state.approvedContent)) {
+      for (const content of state.approvedContent) {
+        if (requiredString(content.contentId)) {
+          approvedContent.set(content.contentId, content);
+        }
+      }
+    }
+
+    if (Array.isArray(state.contentNodes)) {
+      for (const mapping of state.contentNodes) {
+        if (requiredString(mapping.contentId) && Array.isArray(mapping.nodeIds)) {
+          contentNodes.set(mapping.contentId, new Set(mapping.nodeIds.filter(requiredString)));
+        }
+      }
+    }
+
+    console.log(`loaded coordinator state from ${stateFile}`);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') {
+      console.log(`no coordinator state found at ${stateFile}; starting empty`);
+      return;
+    }
+    throw err;
+  }
+}
+
 function cleanupStaleNodes() {
   const cutoff = Date.now() - nodeTtlMs;
+  let changed = false;
   for (const [nodeId, node] of nodes.entries()) {
     if (node.lastSeenMs < cutoff) {
       nodes.delete(nodeId);
+      changed = true;
       for (const nodeSet of contentNodes.values()) {
-        nodeSet.delete(nodeId);
+        if (nodeSet.delete(nodeId)) {
+          changed = true;
+        }
       }
     }
+  }
+  if (changed) {
+    queueSaveState();
   }
 }
 
@@ -93,6 +180,7 @@ async function handleRegisterNode(req, res) {
     return;
   }
 
+  const existing = nodes.get(body.nodeId);
   const node = {
     nodeId: body.nodeId,
     region: requiredString(body.region) ? body.region : 'unknown',
@@ -100,14 +188,15 @@ async function handleRegisterNode(req, res) {
     maxBandwidthMbps: Number.isFinite(body.maxBandwidthMbps) ? body.maxBandwidthMbps : 0,
     microCdnEnabled: body.microCdnEnabled === true,
     publicAddress: body.publicAddress.replace(/\/$/, ''),
-    cacheHits: 0,
-    bytesServed: 0,
-    cachedFiles: 0,
+    cacheHits: existing ? existing.cacheHits : 0,
+    bytesServed: existing ? existing.bytesServed : 0,
+    cachedFiles: existing ? existing.cachedFiles : 0,
     lastSeenMs: Date.now(),
     lastSeen: nowIso()
   };
 
   nodes.set(node.nodeId, node);
+  await queueSaveState();
   sendJson(res, 200, { ok: true, node });
 }
 
@@ -132,6 +221,7 @@ async function handleHealth(req, res) {
   existing.lastSeenMs = Date.now();
   existing.lastSeen = nowIso();
 
+  await queueSaveState();
   sendJson(res, 200, { ok: true, node: existing });
 }
 
@@ -142,15 +232,18 @@ async function handleApproveContent(req, res) {
     return;
   }
 
+  const existing = approvedContent.get(body.contentId);
   const content = {
     contentId: body.contentId,
     sha256: body.sha256.toLowerCase(),
     url: body.url,
     maxAgeSeconds: Number.isFinite(body.maxAgeSeconds) ? body.maxAgeSeconds : 86400,
-    createdAt: nowIso()
+    createdAt: existing ? existing.createdAt : nowIso(),
+    updatedAt: nowIso()
   };
 
   approvedContent.set(content.contentId, content);
+  await queueSaveState();
   sendJson(res, 200, { ok: true, content });
 }
 
@@ -183,6 +276,7 @@ async function handleAdvertiseContent(req, res) {
   node.lastSeenMs = Date.now();
   node.lastSeen = nowIso();
 
+  await queueSaveState();
   sendJson(res, 200, { ok: true, contentId: body.contentId, nodeId: body.nodeId });
 }
 
@@ -220,6 +314,8 @@ function handleStatus(res) {
   cleanupStaleNodes();
   sendJson(res, 200, {
     ok: true,
+    persistent: true,
+    stateFile,
     nodes: [...nodes.values()].map(node => ({
       nodeId: node.nodeId,
       region: node.region,
@@ -283,6 +379,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+await loadState();
+
 server.listen(port, () => {
   console.log(`micro cdn coordinator listening on http://127.0.0.1:${port}`);
+  console.log(`coordinator state file: ${stateFile}`);
 });
