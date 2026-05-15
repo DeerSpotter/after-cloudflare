@@ -1,0 +1,1 @@
+{"nodeId":"node-001","region":"local-dev","port":8081,"coordinatorUrl":"http://127.0.0.1:8080","publicAddress":"http://127.0.0.1:8081","microCdnEnabled":true,"cacheDir":"./cache","maxDiskMb":128,"maxBandwidthMbps":25,"heartbeatSeconds":10}
