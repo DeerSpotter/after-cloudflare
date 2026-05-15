@@ -1,0 +1,3 @@
+Hello from the after-cloudflare optional micro CDN prototype.
+
+This is a boring static file used to prove the first local cache flow works.
