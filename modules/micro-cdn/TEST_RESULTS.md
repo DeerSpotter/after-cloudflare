@@ -6,23 +6,24 @@
 
 ## Scope tested
 
-This test covered the boring local prototype for the optional micro CDN module.
+This test covered the boring local prototype for the optional micro CDN module after upgrading from raw cache paths to public micro CDN paths.
 
 The tested flow was:
 
 ```text
-approve content
-cache content
+approve public content path
+cache local file by content ID
+store cached bytes by SHA256
 advertise content
-route content
-serve content
+route content by public path
+serve content from /mcdn path
 track manifest data
 persist coordinator state
 persist node cache manifest
 restart coordinator
 restart node agent
 re advertise cached content
-delete cached content
+delete cached content by public path
 unadvertise deleted content
 verify route failure after delete
 ```
@@ -36,7 +37,7 @@ coordinator: 8080
 node agent: 8081
 ```
 
-The local test used alternate ports because port 8080 was already occupied in the test environment.
+The local test used alternate ports because port 8080 may already be occupied in some environments.
 
 ```text
 coordinator: 18080
@@ -45,28 +46,62 @@ node agent: 18081
 
 The same code path was tested. Only the port values were changed.
 
+## Public path tested
+
+```text
+/mcdn/demo/hello.txt
+```
+
+## Content identity tested
+
+```text
+demo/hello.txt
+```
+
+## Hash storage path verified
+
+```text
+cache/sha256/6a/6abf984b2dbbd2235cc76d0231faab579115ece25039a8f84bf3d29fd147dae7
+```
+
 ## Result summary
 
 ```text
 PASS: Coordinator starts
 PASS: Node agent starts
 PASS: Node registers with coordinator
-PASS: Content approval works
+PASS: Content approval works with namespace and display path
+PASS: Public path is generated as /mcdn/demo/hello.txt
 PASS: Local file cache works
 PASS: SHA256 verification works
-PASS: Coordinator route works
-PASS: Download from selected node works
-PASS: Node manifest records cached asset
+PASS: Cached bytes are stored under cache/sha256
+PASS: Coordinator route works by public path
+PASS: Route response returns /mcdn/demo/hello.txt node download URL
+PASS: Download from selected node works through /mcdn path
+PASS: Node manifest records contentId and publicPath
 PASS: Manifest hit count increments after download
+PASS: Coordinator content mapping exists
 PASS: Coordinator persistence survives restart
 PASS: Node manifest persistence survives restart
 PASS: Node re advertises cached content after restart
-PASS: DELETE /cache/hello.txt works
+PASS: Route still works after restart
+PASS: Download still works after restart
+PASS: DELETE /mcdn/demo/hello.txt works
 PASS: Node removes manifest entry
 PASS: Node removes cached file
 PASS: Coordinator unadvertise works
 PASS: Route fails after delete when no node serves the file
 PASS: Coordinator content mapping becomes empty after delete
+```
+
+## Fresh test output highlights
+
+```text
+sha256: 6abf984b2dbbd2235cc76d0231faab579115ece25039a8f84bf3d29fd147dae7
+publicPath: /mcdn/demo/hello.txt
+downloadUrl: http://127.0.0.1:18081/mcdn/demo/hello.txt
+routeAfterDeleteStatus: 404
+routeAfterDeleteBody: no healthy node currently serves this content
 ```
 
 ## Persistence verification
@@ -81,36 +116,46 @@ micro cdn coordinator listening on http://127.0.0.1:18080
 Node restart showed that the cache manifest was loaded correctly:
 
 ```text
-loaded node cache manifest from /mnt/data/micro-cdn-test/node-agent/cache/manifest.json
+loaded node cache manifest from /mnt/data/mcdn-fresh/node-agent/cache/manifest.json
 micro cdn node agent listening on http://127.0.0.1:18081
 ```
 
 ## Delete verification
 
-After deleting the cached asset, the expected final state was reached:
+After deleting the cached asset by public path, the expected final state was reached:
 
 ```text
+DELETE /mcdn/demo/hello.txt: PASS
 manifest_after_delete: 0
 route_after_delete_http: 404
 contentNodes_after_delete: []
 ```
+
+## Timing note
+
+The manifest hit counter updates after the file stream completes.
+
+During automated tests, wait briefly after the download before checking the manifest hit count.
 
 ## Confirmed current lifecycle
 
 The prototype currently supports this full local lifecycle:
 
 ```text
-approve
-cache
+approve public path
+cache by content ID
+store by SHA256
 advertise
-route
-serve
+route by public path
+serve by /mcdn path
 track
-delete
-unadvertise
 persist
 restart
 recover
+re advertise
+delete by public path
+unadvertise
+verify empty mapping
 ```
 
 ## Known limitation found during testing
