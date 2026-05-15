@@ -12,6 +12,8 @@ It is intentionally simple:
 6. Advertises cached content back to the coordinator
 7. Persists a local cache manifest
 8. Re advertises cached content after restart
+9. Deletes cached content cleanly
+10. Unadvertises deleted content from the coordinator
 
 ## Run
 
@@ -104,6 +106,20 @@ Invoke-RestMethod `
 ```bash
 curl http://127.0.0.1:8081/cache/hello.txt
 ```
+
+## Delete cached file
+
+```bash
+curl -X DELETE http://127.0.0.1:8081/cache/hello.txt
+```
+
+Windows PowerShell:
+
+```powershell
+Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:8081/cache/hello.txt"
+```
+
+Deleting cached content removes the local cache file, removes the manifest entry, and calls the coordinator unadvertise endpoint.
 
 ## Health
 
