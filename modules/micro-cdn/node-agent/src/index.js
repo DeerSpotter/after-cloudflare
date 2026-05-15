@@ -224,6 +224,13 @@ async function advertiseContent(config, contentId) {
   });
 }
 
+async function unadvertiseContent(config, contentId) {
+  return postJson(`${config.coordinatorUrl}/content/unadvertise`, {
+    nodeId: config.nodeId,
+    contentId
+  });
+}
+
 async function cacheLocalFile(config, contentId, sourcePath, expectedSha256) {
   if (config.microCdnEnabled !== true) {
     throw new Error('micro CDN mode is disabled');
@@ -257,6 +264,32 @@ async function cacheLocalFile(config, contentId, sourcePath, expectedSha256) {
   await queueSaveManifest();
   await advertiseContent(config, contentId);
   return entry;
+}
+
+async function deleteCachedFile(config, contentId) {
+  const entry = manifest.get(contentId);
+  const targetPath = entry ? entry.filePath : cacheFilePath(config, contentId);
+
+  await fs.rm(targetPath, { force: true });
+  const hadManifestEntry = manifest.delete(contentId);
+  await queueSaveManifest();
+
+  let unadvertiseResult = null;
+  try {
+    unadvertiseResult = await unadvertiseContent(config, contentId);
+  } catch (err) {
+    unadvertiseResult = {
+      ok: false,
+      error: err instanceof Error ? err.message : 'unknown error'
+    };
+  }
+
+  return {
+    contentId,
+    deletedFile: true,
+    removedManifestEntry: hadManifestEntry,
+    unadvertiseResult
+  };
 }
 
 async function serveCachedFile(config, contentId, res) {
@@ -353,6 +386,13 @@ async function main() {
           return;
         }
         const result = await cacheLocalFile(config, body.contentId, body.sourcePath, body.sha256);
+        sendJson(res, 200, { ok: true, result });
+        return;
+      }
+
+      if (req.method === 'DELETE' && url.pathname.startsWith('/cache/')) {
+        const contentId = decodeURIComponent(url.pathname.slice('/cache/'.length));
+        const result = await deleteCachedFile(config, contentId);
         sendJson(res, 200, { ok: true, result });
         return;
       }
