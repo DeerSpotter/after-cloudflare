@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import worker, { MgpSignalRoom } from "../src/worker.js";
+import { fetchThroughProvider } from "../src/routing/providerFetch.js";
 
 function makeEnv() {
     return {
@@ -86,12 +87,15 @@ test("successful CDN route returns provider headers", async () => {
         assert.equal(text, "ok from cdn");
         assert.equal(response.headers.get("x-open-edge-provider"), "cdn-a");
         assert.ok(response.headers.get("x-mgp-route-id"));
+        assert.equal(response.headers.get("x-flareless-provider"), "cdn-a");
+        assert.equal(response.headers.get("x-flareless-reason"), "PRIMARY_PROVIDER_SUCCESS");
+        assert.equal(response.headers.get("x-flareless-attempts"), "cdn-a:PROVIDER_SUCCESS");
     } finally {
         globalThis.fetch = oldFetch;
     }
 });
 
-test("blocked first provider falls through to second provider", async () => {
+test("blocked first provider falls through to second provider with route explanation", async () => {
     const oldFetch = globalThis.fetch;
     const urls = [];
 
@@ -112,8 +116,34 @@ test("blocked first provider falls through to second provider", async () => {
         assert.equal(response.status, 200);
         assert.equal(text, "ok from fallback");
         assert.equal(response.headers.get("x-open-edge-provider"), "cdn-b");
+        assert.equal(response.headers.get("x-flareless-provider"), "cdn-b");
+        assert.equal(response.headers.get("x-flareless-reason"), "PROVIDER_BLOCKED_FAILOVER");
+        assert.equal(response.headers.get("x-flareless-attempts"), "cdn-a:PROVIDER_BLOCKED_451,cdn-b:PROVIDER_SUCCESS");
         assert.ok(urls.some(url => url.includes("cdn-a.example.com")));
         assert.ok(urls.some(url => url.includes("cdn-b.example.com")));
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
+test("provider fetch returns timeout result when provider does not answer before timeout", async () => {
+    const oldFetch = globalThis.fetch;
+
+    globalThis.fetch = async function() {
+        return new Promise(() => {});
+    };
+
+    try {
+        const result = await fetchThroughProvider(jsonRequest("/video/slow.m4s"), {
+            name: "slow-cdn",
+            baseUrl: "https://slow.example.com",
+            timeoutMs: 10
+        });
+
+        assert.equal(result.ok, false);
+        assert.equal(result.provider, "slow-cdn");
+        assert.equal(result.reason, "PROVIDER_TIMEOUT");
+        assert.equal(result.timeoutMs, 10);
     } finally {
         globalThis.fetch = oldFetch;
     }
