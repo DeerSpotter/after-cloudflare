@@ -191,6 +191,17 @@ If all CDNs fail, try peer assisted layer
 If peer layer fails, fall back to origin only if allowed
 ```
 
+Provider fetches are timeout aware. Each provider can define `timeoutMs`; when a provider does not answer before its deadline, Flareless records the timeout, marks that provider as failed, and tries the next ranked provider.
+
+Successful routed responses include explanation headers:
+
+```text
+x-flareless-provider: cdn-b
+x-flareless-route-id: route-id
+x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
+x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS
+```
+
 ## Health Check Signals
 
 Each CDN route should be checked from multiple regions.
