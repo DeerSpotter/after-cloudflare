@@ -109,6 +109,21 @@ Local runner:
 npm run local
 ```
 
+Timeout failover demo:
+
+```bash
+npm run demo:timeout-failover
+```
+
+Expected demo result:
+
+```text
+cdn-a:PROVIDER_TIMEOUT
+cdn-b:PROVIDER_SUCCESS
+x-flareless-provider: cdn-b
+x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
+```
+
 Simulator:
 
 ```bash
