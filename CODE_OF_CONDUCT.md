@@ -1,6 +1,6 @@
 # Code of Conduct
 
-After Cloudflare exists to turn hard experience into useful infrastructure.
+Flareless exists to turn hard experience into useful infrastructure.
 
 This project can have edge, urgency, and strong opinions. It cannot become a place for personal attacks.
 
