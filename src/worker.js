@@ -92,7 +92,9 @@ async function routeRequest(request) {
         headers.set("x-flareless-reason", createRouteReason(attempts));
         headers.set("x-flareless-attempts", createAttemptHeader(attempts));
 
-        return new Response(response.body, {
+        const body = await response.arrayBuffer();
+
+        return new Response(body, {
             status: response.status,
             headers
         });
