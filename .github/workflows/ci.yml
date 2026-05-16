@@ -26,6 +26,9 @@ jobs:
       - name: Test Worker runtime
         run: npm test
 
+      - name: Test timeout failover demo
+        run: npm run demo:timeout-failover
+
   go:
     runs-on: ubuntu-latest
     steps:
