@@ -1,6 +1,6 @@
 # Contributing
 
-After Cloudflare is built for people who want to turn hard experience into infrastructure.
+Flareless is built for people who want to turn hard experience into infrastructure.
 
 Bring the systems knowledge. Bring the operational scars. Turn them into code, tests, documents, and reviews.
 
