@@ -1,3 +1,3 @@
-module github.com/DeerSpotter/after-cloudflare
+module github.com/DeerSpotter/flareless
 
 go 1.22
