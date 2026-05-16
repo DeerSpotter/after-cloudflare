@@ -1,6 +1,6 @@
 # Milestones
 
-These milestones define the build path for After Cloudflare. They are written so new contributors can understand what matters first, what is blocked, and where their work fits.
+These milestones define the build path for Flareless. They are written so new contributors can understand what matters first, what is blocked, and where their work fits.
 
 ## Milestone 0: Contributor landing zone
 
