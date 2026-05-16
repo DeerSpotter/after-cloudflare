@@ -1,5 +1,5 @@
 {
-  "name": "after-cloudflare",
+  "name": "flareless",
   "version": "0.1.0",
   "description": "Open source edge runtime and router for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.",
   "type": "module",
