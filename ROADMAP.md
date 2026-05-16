@@ -1,6 +1,6 @@
 # Roadmap
 
-After Cloudflare is being built as a provider neutral edge runtime and routing system. The goal is to route around outages, provider lock in, policy failures, degraded networks, and single vendor control.
+Flareless is being built as a provider neutral edge runtime and routing system. The goal is to route around outages, provider lock in, policy failures, degraded networks, and single vendor control.
 
 This roadmap splits the project into modules so contributors can join without needing private context.
 
