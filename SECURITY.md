@@ -1,6 +1,6 @@
 # Security
 
-After Cloudflare is a routing and resilience project. It is not a bypass tool, abuse platform, or piracy system.
+Flareless is a routing and resilience project. It is not a bypass tool, abuse platform, or piracy system.
 
 ## Security principles
 
