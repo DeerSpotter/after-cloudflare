@@ -37,10 +37,22 @@ For normal asset requests, the runtime:
 1. Reads provider configuration.
 2. Reads the current health snapshot.
 3. Ranks providers.
-4. Fetches through the highest ranked provider.
-5. Marks success or failure.
-6. Falls through to the next provider on blocked or failed responses.
-7. Emits a peer fallback response if no provider succeeds.
+4. Fetches through the highest ranked provider with a provider specific timeout.
+5. Records each provider attempt.
+6. Marks success or failure.
+7. Falls through to the next provider on timeout, blocked status, or failed response.
+8. Emits a peer fallback response if no provider succeeds.
+
+Successful routed responses include explanation headers:
+
+```text
+x-flareless-provider: cdn-b
+x-flareless-route-id: route-id
+x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
+x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS
+```
+
+The legacy `x-open-edge-provider` and `x-mgp-route-id` headers are still emitted for compatibility with the earlier prototype.
 
 ## Provider selection
 
@@ -55,7 +67,7 @@ Provider scoring currently considers:
 * Block timeout
 * Success history
 
-Lower scores are preferred. The selected route should eventually include explicit reason codes so operators can explain why a route was chosen.
+Lower scores are preferred. Route explanation headers now describe whether the selected provider was used directly or reached after failover.
 
 ## Health model
 
@@ -70,6 +82,8 @@ Health is currently in memory and tracks:
 * Block timeout
 * Last error
 
+Provider timeouts are recorded as provider failures. A provider that repeatedly fails or returns a blocked status is avoided for a cooldown window.
+
 Future work should add persistent windows, distributed probe data, region awareness, and provider specific block detection.
 
 ## Provider adapter
@@ -78,14 +92,32 @@ Current path: `src/routing/providerFetch.js`
 
 The provider adapter rewrites the incoming request to the selected provider base URL and forwards method, headers, path, and query string.
 
+The adapter returns a structured result instead of only a raw response. The result identifies whether the provider responded, timed out, or failed during fetch.
+
+Current provider result reasons:
+
+```text
+PROVIDER_RESPONSE
+PROVIDER_TIMEOUT
+PROVIDER_FETCH_ERROR
+```
+
+Current route explanation reasons:
+
+```text
+PRIMARY_PROVIDER_SUCCESS
+PROVIDER_TIMEOUT_FAILOVER
+PROVIDER_BLOCKED_FAILOVER
+PROVIDER_FAILOVER_SUCCESS
+```
+
 Future work should add:
 
-* Request timeouts
 * Retry budgets
 * Header allow lists
 * Provider specific auth
 * Circuit breakers
-* Structured provider errors
+* More detailed structured provider errors
 
 ## Manifest model
 
@@ -145,6 +177,7 @@ Expected failure cases include:
 * HTTP block response
 * Rate limit response
 * Region specific degradation
+* Provider timeout
 * Peer timeout
 * Invalid peer chunk
 * Origin access failure
