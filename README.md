@@ -1,4 +1,4 @@
-# After Cloudflare
+# Flareless
 
 After Cloudflare is for the engineers who built the edge, kept it alive, carried the pager, solved the incidents, and then got told they were expendable.
 
@@ -25,7 +25,7 @@ An open source edge router and runtime for programmable request handling, multi 
 
 Most websites depend on one edge provider for DNS, TLS, WAF, caching, routing, and DDoS protection. That creates a single operational and policy failure point.
 
-After Cloudflare separates those functions.
+Flareless separates those functions.
 
 ```text
 User
@@ -44,7 +44,7 @@ If one CDN fails, blocks traffic, rate limits the site, or becomes unreachable, 
 
 ## Optional Micro CDN Module
 
-After Cloudflare also includes an optional micro CDN prototype under `modules/micro-cdn`.
+Flareless also includes an optional micro CDN prototype under `modules/micro-cdn`.
 
 The micro CDN module lets a node operator explicitly opt in to caching and serving approved public static files. It is not an exit node, not arbitrary proxying, and not private traffic inspection.
 
