@@ -1,13 +1,13 @@
 # Architecture
 
-After Cloudflare is a provider neutral edge runtime and routing system. It separates traffic control from any single CDN so requests can route around outages, blocking, policy failures, rate limits, and degraded network paths.
+Flareless is a provider neutral edge runtime and routing system. It separates traffic control from any single CDN so requests can route around outages, blocking, policy failures, rate limits, and degraded network paths.
 
 ## System overview
 
 ```text
 Client
   |
-After Cloudflare runtime
+Flareless runtime
   |
   |---- Provider adapter A
   |---- Provider adapter B
