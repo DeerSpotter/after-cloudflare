@@ -4,6 +4,7 @@ export const PROVIDERS = [
         baseUrl: "https://cdn-a.example.com",
         priority: 1,
         enabled: true,
+        timeoutMs: 1500,
         costWeight: 1.0,
         regionBias: {
             us: 0,
@@ -17,6 +18,7 @@ export const PROVIDERS = [
         baseUrl: "https://cdn-b.example.com",
         priority: 2,
         enabled: true,
+        timeoutMs: 1500,
         costWeight: 0.8,
         regionBias: {
             us: 5,
@@ -30,6 +32,7 @@ export const PROVIDERS = [
         baseUrl: "https://cdn-c.example.com",
         priority: 3,
         enabled: true,
+        timeoutMs: 1500,
         costWeight: 0.6,
         regionBias: {
             us: 10,
