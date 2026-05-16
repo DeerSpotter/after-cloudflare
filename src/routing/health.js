@@ -41,6 +41,10 @@ export function markProviderFailure(name, reason) {
     }
 }
 
+export function resetHealthState() {
+    HEALTH.clear();
+}
+
 function getState(name) {
     let state = HEALTH.get(name);
 
