@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 
 import worker, { MgpSignalRoom } from "../src/worker.js";
 import { fetchThroughProvider } from "../src/routing/providerFetch.js";
+import { resetHealthState } from "../src/routing/health.js";
+
+beforeEach(() => {
+    resetHealthState();
+});
 
 function makeEnv() {
     return {
@@ -160,9 +165,12 @@ test("all providers failing returns structured peer fallback", async () => {
 
     try {
         const response = await worker.fetch(jsonRequest("/video/c.m4s"), makeEnv(), {});
-        const body = await response.json();
 
         assert.equal(response.status, 503);
+        assert.match(response.headers.get("content-type") || "", /application\/json/);
+
+        const body = await response.json();
+
         assert.equal(body.protocol, "mgp-peer-fallback-v1");
         assert.equal(body.status, "cdn-routes-unavailable");
         assert.deepEqual(body.providersTried, ["cdn-a", "cdn-b", "cdn-c"]);
