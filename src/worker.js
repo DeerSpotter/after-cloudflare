@@ -53,25 +53,44 @@ async function routeRequest(request) {
     const startedAt = Date.now();
     const rankedProviders = selectProviders(PROVIDERS, getHealthSnapshot());
     const routePacket = createMgpRoutePacket(request, rankedProviders);
+    const attempts = [];
 
     for (const provider of rankedProviders) {
-        const response = await fetchThroughProvider(request, provider);
+        const fetchResult = await fetchThroughProvider(request, provider);
 
-        if (response === null) {
-            markProviderFailure(provider.name, "fetch-error");
+        if (fetchResult.ok !== true) {
+            attempts.push({
+                provider: provider.name,
+                result: fetchResult.reason
+            });
+            markProviderFailure(provider.name, normalizeFailureReason(fetchResult.reason));
             continue;
         }
 
+        const response = fetchResult.response;
+
         if (BLOCK_STATUS_CODES.has(response.status)) {
+            attempts.push({
+                provider: provider.name,
+                result: "PROVIDER_BLOCKED_" + response.status
+            });
             markProviderFailure(provider.name, "blocked-" + response.status);
             continue;
         }
 
+        attempts.push({
+            provider: provider.name,
+            result: "PROVIDER_SUCCESS"
+        });
         markProviderSuccess(provider.name, Date.now() - startedAt);
 
         const headers = new Headers(response.headers);
         headers.set("x-open-edge-provider", provider.name);
         headers.set("x-mgp-route-id", routePacket.routeId);
+        headers.set("x-flareless-provider", provider.name);
+        headers.set("x-flareless-route-id", routePacket.routeId);
+        headers.set("x-flareless-reason", createRouteReason(attempts));
+        headers.set("x-flareless-attempts", createAttemptHeader(attempts));
 
         return new Response(response.body, {
             status: response.status,
@@ -80,6 +99,34 @@ async function routeRequest(request) {
     }
 
     return null;
+}
+
+function normalizeFailureReason(reason) {
+    if (reason === "PROVIDER_TIMEOUT") {
+        return "timeout";
+    }
+
+    return "fetch-error";
+}
+
+function createRouteReason(attempts) {
+    if (attempts.length === 1 && attempts[0].result === "PROVIDER_SUCCESS") {
+        return "PRIMARY_PROVIDER_SUCCESS";
+    }
+
+    if (attempts.some(attempt => attempt.result === "PROVIDER_TIMEOUT")) {
+        return "PROVIDER_TIMEOUT_FAILOVER";
+    }
+
+    if (attempts.some(attempt => attempt.result.startsWith("PROVIDER_BLOCKED_"))) {
+        return "PROVIDER_BLOCKED_FAILOVER";
+    }
+
+    return "PROVIDER_FAILOVER_SUCCESS";
+}
+
+function createAttemptHeader(attempts) {
+    return attempts.map(attempt => attempt.provider + ":" + attempt.result).join(",");
 }
 
 function secureHeaders() {
