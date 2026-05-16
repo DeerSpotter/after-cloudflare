@@ -34,6 +34,59 @@ verify SHA256 after hedged fetch
 report success and timeout timing back to coordinator
 ```
 
+## Worker runtime test update
+
+Additional local testing was completed after adding timeout aware provider fetch results and route explanation headers.
+
+The local sandbox could not clone directly from GitHub because `github.com` DNS resolution was unavailable inside the sandbox. To still validate the current code, the needed files were reconstructed from the GitHub connector and tested locally with the Node test runner.
+
+Command run:
+
+```bash
+npm test
+```
+
+Result:
+
+```text
+tests 17
+pass 17
+fail 0
+duration_ms 350.091631
+```
+
+Coverage confirmed by this run:
+
+```text
+PASS: Adaptive peer scheduler tests
+PASS: Upload limiter test
+PASS: Worker export test
+PASS: /health provider snapshot test
+PASS: /manifest provider URL generation test
+PASS: /peer/room-info sanitization test
+PASS: /peer/ws Durable Object binding test
+PASS: Successful CDN route returns provider headers
+PASS: Blocked primary provider falls through to second provider
+PASS: Provider fetch returns timeout result when provider does not answer before timeout
+PASS: All providers failing returns structured peer fallback
+PASS: Route health state resets between worker tests
+PASS: Routed provider response body is preserved when route headers are added
+```
+
+Relevant commits from the timeout failover work:
+
+```text
+b9643912ea96c55c6ae05823358ebbdf3dad9ddf - Add provider timeout configuration
+3e8860b916a4cf3322404a556ebfa6a2182eabd3 - Add timeout aware provider fetch results
+3e86e87db94597a7911485203767f533e7d37300 - Add route explanation headers for failover attempts
+4662800b4ec704e0fd023d63cabf976dd2ff305d - Add timeout and route explanation tests
+d0a222b2eb89393a958ebe2ef470b9057fb339b3 - Document timeout failover explanation headers
+38e454d6eeec58df0e354575f21b287f5f14e876 - Document timeout failover architecture
+d14d1dda4ddba0eb5f13f76e6bd7c53f36a2df36 - Add health reset helper for deterministic tests
+9e3d95b788af4b1dbb1fdd841105c0797f2b3fff - Reset route health state between worker tests
+2a4d1fe7b40616736119b006d8db8c3a5bddb866 - Preserve upstream response body when adding route headers
+```
+
 ## Test environment note
 
 The default prototype ports are:
