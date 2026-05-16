@@ -1,6 +1,6 @@
 # Flareless
 
-After Cloudflare is for the engineers who built the edge, kept it alive, carried the pager, solved the incidents, and then got told they were expendable.
+Flareless is for the engineers who built the edge, kept it alive, carried the pager, solved the incidents, and then got told they were expendable.
 
 This project gives that anger somewhere useful to go.
 
