@@ -4,7 +4,7 @@ This project needs attention from edge engineers, distributed systems engineers,
 
 ## Positioning
 
-After Cloudflare is not a complaint project.
+Flareless is not a complaint project.
 
 It is a build.
 
@@ -41,7 +41,7 @@ Use builder language, not revenge language.
 Good angle:
 
 ```text
-After Cloudflare is an open source edge router and runtime for programmable request handling, multi CDN failover, peer assisted fallback, and provider neutral traffic control.
+Flareless is an open source edge router and runtime for programmable request handling, multi CDN failover, peer assisted fallback, and provider neutral traffic control.
 
 It is built for engineers who still believe the internet should route around failure instead of depending on one company to stay perfect forever.
 ```
@@ -101,7 +101,7 @@ open-source
 ## Suggested short post
 
 ```text
-I started After Cloudflare, an open source edge router and runtime for programmable request handling, multi CDN failover, and provider neutral traffic control.
+I started Flareless, an open source edge router and runtime for programmable request handling, multi CDN failover, and provider neutral traffic control.
 
 The idea is simple: the internet should route around failure instead of depending on one provider to stay perfect forever.
 
@@ -111,7 +111,7 @@ Looking for edge, CDN, WebRTC, distributed systems, and open source infrastructu
 ## Suggested direct outreach
 
 ```text
-I started an open source project called After Cloudflare. It is a provider neutral edge routing and runtime project focused on multi CDN failover, programmable request handling, signed manifests, and peer assisted fallback.
+I started an open source project called Flareless. It is a provider neutral edge routing and runtime project focused on multi CDN failover, programmable request handling, signed manifests, and peer assisted fallback.
 
 I am looking for people with edge, CDN, WebRTC, or distributed systems experience who want to help shape the architecture before it gets too far along.
 
