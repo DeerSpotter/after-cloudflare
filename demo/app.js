@@ -136,9 +136,13 @@ function renderScenario(scenarioKey) {
 }
 
 function scrollToRoutingResult() {
-  const resultTop = routingResult.getBoundingClientRect().top + window.pageYOffset;
-  const offset = 16;
-  window.scrollTo({ top: resultTop - offset, behavior: "smooth" });
+  routingResult.focus({ preventScroll: true });
+  window.location.hash = "routingResult";
+
+  setTimeout(() => {
+    const resultTop = routingResult.getBoundingClientRect().top + window.pageYOffset;
+    window.scrollTo(0, Math.max(resultTop - 16, 0));
+  }, 0);
 }
 
 function resultClass(result) {
@@ -163,9 +167,7 @@ for (const button of buttons) {
   button.addEventListener("click", () => {
     const scenarioKey = button.dataset.scenario;
     renderScenario(scenarioKey);
-    requestAnimationFrame(() => {
-      scrollToRoutingResult();
-    });
+    scrollToRoutingResult();
   });
 }
 
