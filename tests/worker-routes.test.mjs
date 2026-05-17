@@ -93,6 +93,8 @@ test("successful CDN route returns provider headers", async () => {
         assert.equal(response.headers.get("x-open-edge-provider"), "cdn-a");
         assert.ok(response.headers.get("x-mgp-route-id"));
         assert.equal(response.headers.get("x-flareless-provider"), "cdn-a");
+        assert.equal(response.headers.get("x-flareless-route-key"), "route:/video");
+        assert.ok(response.headers.get("x-flareless-request-id"));
         assert.equal(response.headers.get("x-flareless-reason"), "PRIMARY_PROVIDER_SUCCESS");
         assert.equal(response.headers.get("x-flareless-attempts"), "cdn-a:PROVIDER_SUCCESS");
     } finally {
@@ -126,6 +128,64 @@ test("blocked first provider falls through to second provider with route explana
         assert.equal(response.headers.get("x-flareless-attempts"), "cdn-a:PROVIDER_BLOCKED_451,cdn-b:PROVIDER_SUCCESS");
         assert.ok(urls.some(url => url.includes("cdn-a.example.com")));
         assert.ok(urls.some(url => url.includes("cdn-b.example.com")));
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
+test("route scoped health keeps unrelated routes on primary provider", async () => {
+    const oldFetch = globalThis.fetch;
+    const firstRouteUrls = [];
+    const sameRouteUrls = [];
+    const unrelatedRouteUrls = [];
+    let phase = "first-route";
+
+    globalThis.fetch = async function(request) {
+        if (phase === "first-route") {
+            firstRouteUrls.push(request.url);
+        }
+
+        if (phase === "same-route") {
+            sameRouteUrls.push(request.url);
+        }
+
+        if (phase === "unrelated-route") {
+            unrelatedRouteUrls.push(request.url);
+        }
+
+        if (request.url.includes("cdn-a") && request.url.includes("/video/show-a/v1/")) {
+            return new Response("blocked", { status: 451 });
+        }
+
+        return new Response("ok", { status: 200 });
+    };
+
+    try {
+        const firstRouteResponse = await worker.fetch(jsonRequest("/video/show-a/v1/chunk-0001.m4s"), makeEnv(), {});
+        await firstRouteResponse.text();
+
+        assert.equal(firstRouteResponse.headers.get("x-flareless-provider"), "cdn-b");
+        assert.equal(firstRouteResponse.headers.get("x-flareless-route-key"), "route:/video/show-a/v1");
+        assert.equal(firstRouteUrls[0], "https://cdn-a.example.com/video/show-a/v1/chunk-0001.m4s");
+        assert.equal(firstRouteUrls[1], "https://cdn-b.example.com/video/show-a/v1/chunk-0001.m4s");
+
+        phase = "same-route";
+
+        const sameRouteResponse = await worker.fetch(jsonRequest("/video/show-a/v1/chunk-0002.m4s"), makeEnv(), {});
+        await sameRouteResponse.text();
+
+        assert.equal(sameRouteResponse.headers.get("x-flareless-provider"), "cdn-b");
+        assert.equal(sameRouteResponse.headers.get("x-flareless-route-key"), "route:/video/show-a/v1");
+        assert.equal(sameRouteUrls[0], "https://cdn-b.example.com/video/show-a/v1/chunk-0002.m4s");
+
+        phase = "unrelated-route";
+
+        const unrelatedRouteResponse = await worker.fetch(jsonRequest("/assets/logo.png"), makeEnv(), {});
+        await unrelatedRouteResponse.text();
+
+        assert.equal(unrelatedRouteResponse.headers.get("x-flareless-provider"), "cdn-a");
+        assert.equal(unrelatedRouteResponse.headers.get("x-flareless-route-key"), "route:/assets");
+        assert.equal(unrelatedRouteUrls[0], "https://cdn-a.example.com/assets/logo.png");
     } finally {
         globalThis.fetch = oldFetch;
     }
