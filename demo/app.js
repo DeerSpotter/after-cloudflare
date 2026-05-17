@@ -109,6 +109,7 @@ const scenarioExplanation = document.querySelector("#scenarioExplanation");
 const routingResult = document.querySelector("#routingResult");
 const demoControls = document.querySelector("#demoControls");
 const demoControlsToggle = document.querySelector("#demoControlsToggle");
+const demoControlsSymbol = document.querySelector("#demoControlsSymbol");
 const demoChoices = document.querySelector("#demoChoices");
 const peerSection = document.querySelector("#peerSection");
 const buttons = document.querySelectorAll("button[data-scenario]");
@@ -147,14 +148,23 @@ function renderScenario(scenarioKey) {
 }
 
 function setPeerSectionVisible(isVisible) {
-  peerSection.hidden = !isVisible;
-  peerSection.classList.toggle("is-hidden", !isVisible);
+  if (isVisible) {
+    peerSection.hidden = false;
+    peerSection.classList.remove("is-hidden");
+    peerSection.style.display = "";
+    return;
+  }
+
+  peerSection.hidden = true;
+  peerSection.classList.add("is-hidden");
+  peerSection.style.display = "none";
 }
 
 function setControlsOpen(isOpen) {
   demoControls.classList.toggle("is-open", isOpen);
   demoControls.classList.toggle("is-collapsed", !isOpen);
   demoControlsToggle.setAttribute("aria-expanded", String(isOpen));
+  demoControlsSymbol.textContent = isOpen ? "▾" : "▸";
   demoChoices.hidden = !isOpen;
 }
 
