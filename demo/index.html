@@ -21,11 +21,15 @@
     </section>
 
     <section id="demoControls" class="card demo-controls is-open">
-      <button id="demoControlsToggle" class="demo-controls-toggle" type="button" aria-expanded="true" aria-controls="demoChoices">
-        <span>Demo request</span>
-        <strong>Choose a static routing test</strong>
-        <span id="demoControlsSymbol" aria-hidden="true">▾</span>
-      </button>
+      <div class="demo-controls-header">
+        <div>
+          <p class="demo-controls-label">Demo request</p>
+          <h2>Choose a static routing test</h2>
+        </div>
+        <button id="demoControlsToggle" class="demo-controls-toggle" type="button" aria-label="Collapse demo choices" aria-expanded="true" aria-controls="demoChoices">
+          <span id="demoControlsSymbol" aria-hidden="true">▾</span>
+        </button>
+      </div>
       <div id="demoChoices" class="demo-choices">
         <code class="path">/video/show-name/episode-001/v17/720p/chunk-0001.ts</code>
         <div class="button-grid" aria-label="Demo scenarios">
