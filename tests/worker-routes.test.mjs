@@ -93,6 +93,7 @@ test("successful CDN route returns provider headers", async () => {
         assert.equal(response.headers.get("x-open-edge-provider"), "cdn-a");
         assert.ok(response.headers.get("x-mgp-route-id"));
         assert.equal(response.headers.get("x-flareless-provider"), "cdn-a");
+        assert.equal(response.headers.get("x-flareless-policy-id"), "video-public-peer-first");
         assert.equal(response.headers.get("x-flareless-route-key"), "route:/video");
         assert.ok(response.headers.get("x-flareless-request-id"));
         assert.equal(response.headers.get("x-flareless-reason"), "PRIMARY_PROVIDER_SUCCESS");
@@ -186,6 +187,73 @@ test("route scoped health keeps unrelated routes on primary provider", async () 
         assert.equal(unrelatedRouteResponse.headers.get("x-flareless-provider"), "cdn-a");
         assert.equal(unrelatedRouteResponse.headers.get("x-flareless-route-key"), "route:/assets");
         assert.equal(unrelatedRouteUrls[0], "https://cdn-a.example.com/assets/logo.png");
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
+test("video route policy allows peer fallback after all providers fail", async () => {
+    const oldFetch = globalThis.fetch;
+
+    globalThis.fetch = async function() {
+        return new Response("unavailable", { status: 503 });
+    };
+
+    try {
+        const response = await worker.fetch(jsonRequest("/video/policy-test/v1/chunk-0001.m4s"), makeEnv(), {});
+        const body = await response.json();
+
+        assert.equal(response.status, 503);
+        assert.equal(response.headers.get("x-flareless-route"), "peer-fallback");
+        assert.equal(response.headers.get("x-flareless-policy-id"), "video-public-peer-first");
+        assert.equal(body.protocol, "mgp-peer-fallback-v1");
+        assert.equal(body.routePolicyId, "video-public-peer-first");
+        assert.equal(body.routeKey, "route:/video/policy-test/v1");
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
+test("origin allowed route policy returns origin fallback when providers fail", async () => {
+    const oldFetch = globalThis.fetch;
+
+    globalThis.fetch = async function() {
+        return new Response("unavailable", { status: 503 });
+    };
+
+    try {
+        const response = await worker.fetch(jsonRequest("/origin-allowed/file.bin"), makeEnv(), {});
+        const body = await response.json();
+
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get("x-flareless-route"), "origin-fallback");
+        assert.equal(response.headers.get("x-flareless-policy-id"), "origin-fallback-allowed");
+        assert.equal(body.protocol, "mgp-origin-fallback-v1");
+        assert.equal(body.routePolicyId, "origin-fallback-allowed");
+        assert.equal(body.routeKey, "route:/origin-allowed");
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
+test("private route policy blocks peer and origin fallback", async () => {
+    const oldFetch = globalThis.fetch;
+
+    globalThis.fetch = async function() {
+        return new Response("unavailable", { status: 503 });
+    };
+
+    try {
+        const response = await worker.fetch(jsonRequest("/private/locked.bin"), makeEnv(), {});
+        const body = await response.json();
+
+        assert.equal(response.status, 503);
+        assert.equal(response.headers.get("x-flareless-route"), "fallback-blocked");
+        assert.equal(response.headers.get("x-flareless-policy-id"), "private-no-fallback");
+        assert.equal(body.protocol, "mgp-route-policy-v1");
+        assert.equal(body.status, "fallback-blocked-by-policy");
+        assert.equal(body.allowPeerFallback, false);
+        assert.equal(body.allowOriginFallback, false);
     } finally {
         globalThis.fetch = oldFetch;
     }
