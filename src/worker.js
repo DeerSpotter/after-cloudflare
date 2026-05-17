@@ -1,10 +1,12 @@
 import { PROVIDERS } from "./config/providers.js";
+import { applyRoutePolicyToProviders, resolveRoutePolicy } from "./config/routePolicies.js";
 import { createMgpManifest, createMgpProviderSnapshot, createMgpRoutePacket } from "./mgp/protocol.js";
 import { selectProviders } from "./routing/selector.js";
 import { fetchThroughProvider } from "./routing/providerFetch.js";
 import { getHealthSnapshot, getLayeredHealthSnapshot, markProviderFailure, markProviderSuccess } from "./routing/health.js";
 import { createHealthLayers, createRouteScope } from "./routing/routeScope.js";
 import { createPeerFallbackResponse } from "./peer/peerFallback.js";
+import { createFallbackBlockedResponse, createOriginFallbackResponse } from "./origin/originFallback.js";
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
 
@@ -40,21 +42,17 @@ export default {
             return Response.json(createMgpManifest(assetPath, PROVIDERS), { headers: secureHeaders() });
         }
 
-        const routeResult = await routeRequest(request);
-
-        if (routeResult !== null) {
-            return routeResult;
-        }
-
-        return createPeerFallbackResponse(request, PROVIDERS, 503);
+        return await routeRequest(request);
     }
 };
 
 async function routeRequest(request) {
     const startedAt = Date.now();
     const routeScope = createRouteScope(request);
+    const routePolicy = resolveRoutePolicy(routeScope);
+    const candidateProviders = applyRoutePolicyToProviders(PROVIDERS, routePolicy);
     const healthLayers = createHealthLayers(routeScope);
-    const rankedProviders = selectProviders(PROVIDERS, getLayeredHealthSnapshot(healthLayers));
+    const rankedProviders = selectProviders(candidateProviders, getLayeredHealthSnapshot(healthLayers));
     const routePacket = createMgpRoutePacket(request, rankedProviders, routeScope);
     const attempts = [];
 
@@ -94,6 +92,7 @@ async function routeRequest(request) {
         headers.set("x-flareless-route-id", routePacket.requestId);
         headers.set("x-flareless-route-key", routePacket.routeKey);
         headers.set("x-flareless-request-id", routePacket.requestId);
+        headers.set("x-flareless-policy-id", routePolicy.id);
         headers.set("x-flareless-reason", createRouteReason(attempts));
         headers.set("x-flareless-attempts", createAttemptHeader(attempts));
 
@@ -105,7 +104,15 @@ async function routeRequest(request) {
         });
     }
 
-    return null;
+    if (routePolicy.allowPeerFallback === true) {
+        return createPeerFallbackResponse(request, rankedProviders, 503, routePolicy);
+    }
+
+    if (routePolicy.allowOriginFallback === true) {
+        return createOriginFallbackResponse(request, routePolicy, rankedProviders, 200);
+    }
+
+    return createFallbackBlockedResponse(request, routePolicy, rankedProviders, 503);
 }
 
 function markProviderFailureForScopes(routeScope, providerName, reason) {
