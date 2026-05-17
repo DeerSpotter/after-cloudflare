@@ -9,6 +9,10 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -78,6 +82,50 @@ h2 {
   backdrop-filter: blur(12px);
 }
 
+.demo-controls {
+  transition: padding 0.18s ease, opacity 0.18s ease;
+}
+
+.demo-controls-toggle {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f5f7fb;
+  text-align: left;
+}
+
+.demo-controls-toggle span {
+  color: #9eb2ff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-controls-toggle strong {
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.demo-controls-toggle::after {
+  content: "Tap to collapse";
+  color: #aeb9ca;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.demo-controls.is-collapsed .demo-controls-toggle::after {
+  content: "Tap to reopen choices";
+}
+
+.demo-choices {
+  margin-top: 0.85rem;
+}
+
 .path {
   display: block;
   overflow-wrap: anywhere;
@@ -109,6 +157,15 @@ button {
 
 button:active {
   transform: translateY(1px);
+}
+
+.result-card {
+  scroll-margin-top: 1rem;
+}
+
+.result-card:focus {
+  outline: 2px solid rgba(158, 178, 255, 0.5);
+  outline-offset: 0.25rem;
 }
 
 .result-header {
@@ -200,6 +257,10 @@ pre {
   margin-bottom: 0;
   color: #c6cfdd;
   line-height: 1.55;
+}
+
+.is-hidden {
+  display: none !important;
 }
 
 .peer-premium {
