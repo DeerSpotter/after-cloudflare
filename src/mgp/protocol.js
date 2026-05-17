@@ -25,13 +25,22 @@ export function createMgpProviderSnapshot(providers, healthSnapshot) {
     }));
 }
 
-export function createMgpManifest(assetPath, providers) {
+export function createMgpManifest(assetPath, providers, options = {}) {
     const normalizedPath = normalizeAssetPath(assetPath);
+    const sizeBytes = normalizePositiveInteger(options.sizeBytes);
+    const sha256 = normalizeSha256(options.sha256);
 
     return {
         protocol: "mgp-manifest-v1",
         assetPath: normalizedPath,
         generatedAt: Date.now(),
+        integrity: {
+            algorithm: "sha256",
+            sizeBytes: sizeBytes,
+            sha256: sha256,
+            verified: sha256 !== null
+        },
+        chunks: normalizeChunks(options.chunks),
         sources: providers
             .filter(provider => provider.enabled === true)
             .map(provider => ({
@@ -68,4 +77,42 @@ function normalizeRoutePath(path) {
     }
 
     return normalizedPath.slice(0, slashIndex);
+}
+
+function normalizeChunks(value) {
+    if (Array.isArray(value) === false) {
+        return [];
+    }
+
+    return value.map(chunk => ({
+        index: normalizePositiveInteger(chunk?.index),
+        path: normalizeAssetPath(chunk?.path || "/"),
+        offset: normalizePositiveInteger(chunk?.offset),
+        sizeBytes: normalizePositiveInteger(chunk?.sizeBytes),
+        sha256: normalizeSha256(chunk?.sha256)
+    })).filter(chunk => chunk.index !== null && chunk.sizeBytes !== null && chunk.sha256 !== null);
+}
+
+function normalizePositiveInteger(value) {
+    const parsed = Number(value);
+
+    if (Number.isSafeInteger(parsed) === false || parsed < 0) {
+        return null;
+    }
+
+    return parsed;
+}
+
+function normalizeSha256(value) {
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const normalized = value.trim().toLowerCase();
+
+    if (/^[a-f0-9]{64}$/.test(normalized) === false) {
+        return null;
+    }
+
+    return normalized;
 }
