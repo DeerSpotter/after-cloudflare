@@ -86,6 +86,27 @@ Provider timeouts are recorded as provider failures. A provider that repeatedly 
 
 Future work should add persistent windows, distributed probe data, region awareness, and provider specific block detection.
 
+## Avoiding a New Single Point of Failure
+
+Flareless should not become one new shared failover switch. The routing layer is designed so health, policy, and fallback decisions can be scoped instead of being treated as one global truth.
+
+Each request creates a route scope. The current runtime tracks both a route key and a chunk key, then combines health layers when ranking providers. This allows a failed provider path for one video route or one chunk to influence that exact path without automatically forcing unrelated assets, users, or routes onto the same fallback.
+
+The current scoped health layers are:
+
+```text
+global health      low weight safety signal
+route health       route specific failure signal
+chunk health       exact asset or chunk failure signal
+session health     optional user or group specific signal
+```
+
+This means a bad `cdn-a` response for one route should not poison every request. A video chunk can move to `cdn-b` while an unrelated asset still starts on `cdn-a`.
+
+Route policy also stays scoped. A video route can allow peer fallback while blocking origin fallback. A private route can block both peer and origin fallback. An origin allowed route can skip peer fallback and use origin only as a controlled last resort.
+
+The long term control plane should preserve this model. Distributed probes, regional scoring, and operator controls should feed scoped health buckets instead of creating one central decision point.
+
 ## Provider adapter
 
 Current path: `src/routing/providerFetch.js`
