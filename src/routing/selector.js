@@ -1,28 +1,60 @@
 export function selectProviders(providers, healthSnapshot) {
     const now = Date.now();
+    const healthLayers = normalizeHealthLayers(healthSnapshot);
 
     return providers
         .filter(provider => provider.enabled === true)
         .map(provider => ({
             provider: provider,
-            score: scoreProvider(provider, healthSnapshot?.[provider.name], now)
+            score: scoreProvider(provider, healthLayers, now)
         }))
         .sort((left, right) => left.score - right.score)
         .map(entry => entry.provider);
 }
 
-function scoreProvider(provider, health, now) {
+function scoreProvider(provider, healthLayers, now) {
     const priorityScore = (provider.priority || 100) * 100;
     const costScore = (provider.costWeight || 1) * 25;
+    const healthScore = healthLayers.reduce((score, layer) => {
+        return score + scoreHealth(provider.name, layer.providers?.[provider.name], layer.weight, now);
+    }, 0);
 
+    return priorityScore + costScore + healthScore;
+}
+
+function scoreHealth(providerName, health, weight, now) {
     if (health === undefined) {
-        return priorityScore + costScore;
+        return 0;
     }
 
-    const blockedPenalty = health.blockedUntil > 0 ? 100000 : 0;
-    const failurePenalty = (health.failures || 0) * 500;
-    const latencyPenalty = health.avgLatencyMs || health.lastLatencyMs || 0;
-    const successBonus = Math.min((health.successes || 0) * 10, 200);
+    const blockedPenalty = health.blockedUntil > 0 ? 100000 * weight : 0;
+    const failurePenalty = (health.failures || 0) * 500 * weight;
+    const latencyPenalty = (health.avgLatencyMs || health.lastLatencyMs || 0) * weight;
+    const successBonus = Math.min((health.successes || 0) * 10 * weight, 200 * weight);
 
-    return priorityScore + costScore + blockedPenalty + failurePenalty + latencyPenalty - successBonus;
+    return blockedPenalty + failurePenalty + latencyPenalty - successBonus;
+}
+
+function normalizeHealthLayers(healthSnapshot) {
+    if (Array.isArray(healthSnapshot) === true) {
+        return healthSnapshot.map(layer => ({
+            providers: layer.providers || {},
+            weight: normalizeWeight(layer.weight)
+        }));
+    }
+
+    return [{
+        providers: healthSnapshot || {},
+        weight: 1
+    }];
+}
+
+function normalizeWeight(value) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed) === false || parsed <= 0) {
+        return 1;
+    }
+
+    return parsed;
 }
