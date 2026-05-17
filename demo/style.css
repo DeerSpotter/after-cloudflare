@@ -86,19 +86,15 @@ h2 {
   transition: padding 0.18s ease, opacity 0.18s ease;
 }
 
-.demo-controls-toggle {
-  display: grid;
-  gap: 0.2rem;
-  width: 100%;
-  min-height: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #f5f7fb;
-  text-align: left;
+.demo-controls-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.demo-controls-toggle span {
+.demo-controls-label {
+  margin: 0 0 0.3rem;
   color: #9eb2ff;
   font-size: 0.78rem;
   font-weight: 900;
@@ -106,20 +102,30 @@ h2 {
   text-transform: uppercase;
 }
 
-.demo-controls-toggle strong {
-  font-size: 1rem;
-  letter-spacing: -0.02em;
+.demo-controls-header h2 {
+  margin-bottom: 0;
 }
 
-.demo-controls-toggle::after {
-  content: "Tap to collapse";
-  color: #aeb9ca;
-  font-size: 0.82rem;
-  font-weight: 700;
+.demo-controls-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  min-height: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f7fb;
+  text-align: center;
 }
 
-.demo-controls.is-collapsed .demo-controls-toggle::after {
-  content: "Tap to reopen choices";
+.demo-controls-toggle span {
+  color: #f5f7fb;
+  font-size: 1.1rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .demo-choices {
