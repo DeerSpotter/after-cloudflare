@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flareless Mobile Demo</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Flareless browser demo</p>
+      <h1>Route around CDN failure from your phone.</h1>
+      <p class="lede">
+        This static demo simulates timeout aware provider routing, HTTP failure handling,
+        peer assisted fallback, and optional origin fallback. No server is required.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Demo request</h2>
+      <code class="path">/video/show-name/episode-001/v17/720p/chunk-0001.ts</code>
+      <div class="button-grid" aria-label="Demo scenarios">
+        <button type="button" data-scenario="normal">Normal route</button>
+        <button type="button" data-scenario="timeout">Timeout failover</button>
+        <button type="button" data-scenario="http403">HTTP 403 failover</button>
+        <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
+        <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
+        <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
+      </div>
+    </section>
+
+    <section class="card result-card" aria-live="polite">
+      <div class="result-header">
+        <h2>Routing result</h2>
+        <span id="statusPill" class="status-pill idle">Idle</span>
+      </div>
+      <ol id="timeline" class="timeline"></ol>
+    </section>
+
+    <section class="card">
+      <h2>Response headers</h2>
+      <pre id="headers">Run a scenario to see route explanation headers.</pre>
+    </section>
+
+    <section class="card note">
+      <h2>What this proves</h2>
+      <p>
+        This page is a mobile friendly model of the Flareless decision path. It does not
+        require hosting, a worker, or a signaling service. A later live demo can replace
+        the simulated peer result with real WebRTC signaling.
+      </p>
+    </section>
+  </main>
+
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
