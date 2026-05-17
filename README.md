@@ -13,6 +13,7 @@ An open source edge router and runtime for programmable request handling, multi 
 ## Start Here
 
 * `QUICKSTART.md` explains how to run the local runtime, tests, and simulator.
+* `demo/` contains a no hosting mobile browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
 * `ROADMAP.md` breaks the project into contributor ready modules.
 * `MILESTONES.md` defines the build phases and exit criteria.
 * `ARCHITECTURE.md` explains request flow, provider selection, health, manifests, and peer fallback.
@@ -92,6 +93,7 @@ services/     Go control plane scaffold
 public/       Browser side peer logic
 scripts/      Local runner and simulation tools
 tests/        Node test suite
+demo/         Static mobile browser demo
 ```
 
 Local checks:
@@ -129,6 +131,14 @@ Simulator:
 ```bash
 npm run simulate
 ```
+
+Mobile browser demo:
+
+```text
+Open demo/index.html directly or serve the demo directory with GitHub Pages.
+```
+
+The demo is static and requires no worker, backend, or paid hosting. It simulates provider timeout, HTTP status failover, peer assisted fallback, and route policy behavior for origin fallback.
 
 ## Design Goals
 
