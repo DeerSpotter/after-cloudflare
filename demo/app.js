@@ -107,24 +107,27 @@ const scenarios = {
     }
   },
   routeScopedHealth: {
-    label: "Unrelated route stays on CDN A",
+    label: "Route isolation verified",
     statusClass: "success",
-    explanation: "CDN A fails for one video route, so that route moves to CDN B for the next chunk. A separate asset route still starts on CDN A because route scoped health keeps the failure attached to the route that actually failed.",
+    explanation: "This test now uses the same route attempt style as the other buttons. CDN A fails for the video route, the next video chunk starts on CDN B, and an unrelated asset route still starts on CDN A. That proves one route failure does not poison unrelated routes.",
     attempts: [
-      { provider: "route:/video/show-a/v1", result: "cdn-a failed, next chunk starts cdn-b", detail: "The video route keeps its own health state." },
-      { provider: "route:/assets", result: "cdn-a still primary", detail: "The unrelated asset route is not poisoned by the video route failure." }
+      { provider: "cdn-a", result: "PROVIDER_BLOCKED_451", detail: "Failed only for route:/video/show-a/v1." },
+      { provider: "cdn-b", result: "PROVIDER_SUCCESS", detail: "Same video route moves to backup provider." },
+      { provider: "cdn-a", result: "PROVIDER_SUCCESS", detail: "Unrelated route:/assets still starts on the primary provider." }
     ],
     headers: {
-      "x-flareless-route-key": "route:/assets",
       "x-flareless-provider": "cdn-a",
+      "x-flareless-route-id": "demo-route-scoped-health",
+      "x-flareless-route-key": "route:/assets",
+      "x-flareless-policy-id": "default-public-static",
       "x-flareless-reason": "ROUTE_SCOPED_HEALTH_ISOLATION",
-      "x-flareless-attempts": "route:/video/show-a/v1:cdn-a-failed,route:/assets:cdn-a-primary"
+      "x-flareless-attempts": "route:/video/show-a/v1:cdn-a:PROVIDER_BLOCKED_451,route:/video/show-a/v1:cdn-b:PROVIDER_SUCCESS,route:/assets:cdn-a:PROVIDER_SUCCESS"
     }
   },
   videoPolicyPeerFallback: {
-    label: "Video policy uses peer fallback",
+    label: "Peer fallback allowed",
     statusClass: "success",
-    explanation: "The video route policy allows peer fallback and blocks origin fallback. When all CDNs fail, the route can move to the peer assisted layer instead of waking up origin storage.",
+    explanation: "The video route policy allows peer fallback and blocks origin fallback. When all CDN providers fail, this route moves to the peer assisted layer instead of waking up origin storage.",
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_HTTP_503" },
       { provider: "cdn-b", result: "PROVIDER_HTTP_503" },
@@ -133,6 +136,8 @@ const scenarios = {
     ],
     headers: {
       "x-flareless-route": "peer-fallback",
+      "x-flareless-provider": "peer-assisted-edge",
+      "x-flareless-route-id": "demo-video-policy-peer",
       "x-flareless-route-key": "route:/video/policy-test/v1",
       "x-flareless-policy-id": "video-public-peer-first",
       "x-flareless-reason": "PEER_FALLBACK_ALLOWED",
@@ -140,37 +145,42 @@ const scenarios = {
     }
   },
   privatePolicyBlocked: {
-    label: "Private policy blocks fallback",
+    label: "Fallback blocked by policy",
     statusClass: "blocked",
-    explanation: "The private route policy blocks both peer fallback and origin fallback. If the CDNs fail, the request stops with a policy blocked response instead of leaking private content into peers or surprising origin.",
+    explanation: "The private route policy blocks both peer fallback and origin fallback. If CDN providers fail, the request stops with a policy blocked response instead of leaking private content into peers or surprising origin.",
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_HTTP_503" },
       { provider: "cdn-b", result: "PROVIDER_HTTP_503" },
-      { provider: "route-policy", result: "FALLBACK_BLOCKED", detail: "Policy private-no-fallback blocks peer and origin fallback." }
+      { provider: "route-policy", result: "FALLBACK_BLOCKED_BY_POLICY", detail: "Policy private-no-fallback blocks peer and origin fallback." }
     ],
     headers: {
       "x-flareless-route": "fallback-blocked",
+      "x-flareless-provider": "none",
+      "x-flareless-route-id": "demo-private-policy-blocked",
       "x-flareless-route-key": "route:/private",
       "x-flareless-policy-id": "private-no-fallback",
       "x-flareless-reason": "FALLBACK_BLOCKED_BY_POLICY",
-      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,route-policy:FALLBACK_BLOCKED"
+      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,route-policy:FALLBACK_BLOCKED_BY_POLICY"
     }
   },
   originPolicyAllowed: {
-    label: "Origin policy allows fallback",
+    label: "Origin fallback allowed",
     statusClass: "success",
     explanation: "The origin allowed route policy blocks peer fallback but allows origin fallback. This is for routes where origin is an acceptable last resort and peer delivery is not allowed.",
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_HTTP_503" },
       { provider: "cdn-b", result: "PROVIDER_HTTP_503" },
-      { provider: "origin", result: "ORIGIN_FALLBACK_ALLOWED", detail: "Policy origin-fallback-allowed allows origin fallback." }
+      { provider: "peer-assisted-edge", result: "PEER_FALLBACK_NOT_ALLOWED", detail: "Policy origin-fallback-allowed skips peer fallback." },
+      { provider: "origin", result: "ORIGIN_SUCCESS", detail: "Policy origin-fallback-allowed allows origin fallback." }
     ],
     headers: {
       "x-flareless-route": "origin-fallback",
+      "x-flareless-provider": "origin",
+      "x-flareless-route-id": "demo-origin-policy-allowed",
       "x-flareless-route-key": "route:/origin-allowed",
       "x-flareless-policy-id": "origin-fallback-allowed",
       "x-flareless-reason": "ORIGIN_FALLBACK_SUCCESS",
-      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,origin:ORIGIN_FALLBACK_ALLOWED"
+      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,peer-assisted-edge:PEER_FALLBACK_NOT_ALLOWED,origin:ORIGIN_SUCCESS"
     }
   }
 };
@@ -196,6 +206,10 @@ const buttons = document.querySelectorAll("button[data-scenario]");
 
 function renderScenario(scenarioKey) {
   const scenario = scenarios[scenarioKey];
+
+  if (scenario === undefined) {
+    return;
+  }
 
   timeline.replaceChildren();
 
@@ -225,6 +239,7 @@ function renderScenario(scenarioKey) {
   headers.textContent = formatHeaders(scenario.headers);
   scenarioExplanation.textContent = scenario.explanation;
   setPeerSectionVisible(peerScenarioKeys.has(scenarioKey));
+  setActiveButton(scenarioKey);
 }
 
 function setPeerSectionVisible(isVisible) {
@@ -241,6 +256,14 @@ function setControlsOpen(isOpen) {
   demoChoices.hidden = !isOpen;
 }
 
+function setActiveButton(scenarioKey) {
+  for (const button of buttons) {
+    const isActive = button.dataset.scenario === scenarioKey;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+}
+
 function scrollToRoutingResult() {
   routingResult.focus({ preventScroll: true });
   window.location.hash = "routingResult";
@@ -252,7 +275,7 @@ function scrollToRoutingResult() {
 }
 
 function resultClass(result) {
-  if (result.includes("SUCCESS") || result.includes("ALLOWED") || result.includes("primary")) {
+  if (result.includes("SUCCESS") || result.includes("ALLOWED")) {
     return "success-line";
   }
 
@@ -270,6 +293,7 @@ function formatHeaders(headerMap) {
 }
 
 for (const button of buttons) {
+  button.setAttribute("aria-pressed", "false");
   button.addEventListener("click", () => {
     const scenarioKey = button.dataset.scenario;
     renderScenario(scenarioKey);

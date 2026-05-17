@@ -161,6 +161,12 @@ button {
   cursor: pointer;
 }
 
+button.is-active {
+  outline: 2px solid #66f0c2;
+  outline-offset: 0.18rem;
+  background: linear-gradient(180deg, #ffffff 0%, #dbe4ff 100%);
+}
+
 button:active {
   transform: translateY(1px);
 }
