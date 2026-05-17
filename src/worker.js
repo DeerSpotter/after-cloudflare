@@ -111,13 +111,11 @@ async function routeRequest(request) {
 function markProviderFailureForScopes(routeScope, providerName, reason) {
     markProviderFailure(routeScope.routeKey, providerName, reason);
     markProviderFailure(routeScope.chunkKey, providerName, reason);
-    markProviderFailure("global", providerName, reason);
 }
 
 function markProviderSuccessForScopes(routeScope, providerName, latencyMs) {
     markProviderSuccess(routeScope.routeKey, providerName, latencyMs);
     markProviderSuccess(routeScope.chunkKey, providerName, latencyMs);
-    markProviderSuccess("global", providerName, latencyMs);
 }
 
 function normalizeFailureReason(reason) {
