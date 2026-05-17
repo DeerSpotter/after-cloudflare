@@ -8,6 +8,166 @@
   <meta http-equiv="Expires" content="0">
   <title>Flareless Mobile Demo</title>
   <link rel="stylesheet" href="./style.css?v=6">
+  <style>
+    .mesh-card {
+      position: relative;
+      z-index: 2;
+      margin-top: 1.2rem;
+      padding: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 1.25rem;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at center, rgba(83, 122, 255, 0.26), transparent 12rem),
+        rgba(2, 7, 18, 0.82);
+      background-size: 2.4rem 2.4rem, 2.4rem 2.4rem, auto, auto;
+    }
+
+    .mesh-orbital {
+      position: relative;
+      width: 100%;
+      max-width: 32rem;
+      height: 32rem;
+      margin: 0 auto;
+    }
+
+    .mesh-ring {
+      position: absolute;
+      inset: 12%;
+      border: 1px solid rgba(158, 178, 255, 0.28);
+      border-radius: 50%;
+      box-shadow: inset 0 0 2rem rgba(158, 178, 255, 0.1), 0 0 2rem rgba(102, 240, 194, 0.08);
+    }
+
+    .mesh-ring::before,
+    .mesh-ring::after {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border: 1px solid rgba(102, 240, 194, 0.18);
+      border-radius: 50%;
+    }
+
+    .mesh-ring::after {
+      inset: 38%;
+      border-color: rgba(255, 200, 87, 0.16);
+    }
+
+    .mesh-link {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 42%;
+      height: 0.18rem;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(102, 240, 194, 0.05), rgba(158, 178, 255, 0.95), rgba(255, 200, 87, 0.05));
+      transform-origin: left center;
+      animation: linkPulse 2.8s ease-in-out infinite;
+    }
+
+    .link-a { transform: rotate(225deg); }
+    .link-b { transform: rotate(270deg); animation-delay: 0.1s; }
+    .link-c { transform: rotate(315deg); animation-delay: 0.2s; }
+    .link-d { transform: rotate(180deg); animation-delay: 0.3s; }
+    .link-e { transform: rotate(0deg); animation-delay: 0.4s; }
+    .link-f { transform: rotate(135deg); animation-delay: 0.5s; }
+    .link-g { transform: rotate(90deg); animation-delay: 0.6s; }
+    .link-h { transform: rotate(45deg); animation-delay: 0.7s; }
+
+    .mesh-center,
+    .orbit-node {
+      position: absolute;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      box-shadow: 0 1rem 2.6rem rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+
+    .mesh-center {
+      left: 50%;
+      top: 50%;
+      width: 8.5rem;
+      height: 8.5rem;
+      padding: 0.9rem;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(180deg, #66f0c2 0%, #9eb2ff 100%);
+      color: #07101f;
+      animation: centerPulse 2.8s ease-in-out infinite;
+    }
+
+    .orbit-node {
+      width: 5.25rem;
+      height: 5.25rem;
+      padding: 0.55rem;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 1rem;
+      background: rgba(245, 247, 251, 0.96);
+      color: #07101f;
+    }
+
+    .mesh-center span,
+    .orbit-node span {
+      display: block;
+      font-size: 0.58rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1.05;
+      text-transform: uppercase;
+      opacity: 0.72;
+    }
+
+    .mesh-center strong,
+    .orbit-node strong {
+      display: block;
+      margin-top: 0.16rem;
+      font-size: 0.78rem;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .mesh-center strong {
+      font-size: 1.05rem;
+    }
+
+    .orbit-a { left: 6%; top: 8%; }
+    .orbit-b { left: 50%; top: 0%; transform: translateX(-50%); }
+    .orbit-c { right: 6%; top: 8%; }
+    .orbit-d { left: 0%; top: 50%; transform: translateY(-50%); }
+    .orbit-e { right: 0%; top: 50%; transform: translateY(-50%); }
+    .orbit-f { left: 6%; bottom: 8%; }
+    .orbit-g { left: 50%; bottom: 0%; transform: translateX(-50%); }
+    .orbit-h { right: 6%; bottom: 8%; }
+
+    @keyframes linkPulse {
+      0%, 100% { opacity: 0.42; filter: drop-shadow(0 0 0 rgba(102, 240, 194, 0)); }
+      50% { opacity: 1; filter: drop-shadow(0 0 0.7rem rgba(102, 240, 194, 0.45)); }
+    }
+
+    @keyframes centerPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(102, 240, 194, 0.28), 0 1rem 2.6rem rgba(0, 0, 0, 0.35);
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% {
+        box-shadow: 0 0 0 1.2rem rgba(102, 240, 194, 0), 0 1.3rem 3rem rgba(0, 0, 0, 0.38);
+        transform: translate(-50%, -50%) scale(1.04);
+      }
+    }
+
+    @media (max-width: 41.99rem) {
+      .mesh-card { margin-left: -0.35rem; margin-right: -0.35rem; padding: 0.75rem; }
+      .mesh-orbital { height: min(86vw, 28rem); }
+      .mesh-center { width: 7.2rem; height: 7.2rem; }
+      .orbit-node { width: 4.35rem; height: 4.35rem; border-radius: 0.85rem; }
+      .mesh-center span, .orbit-node span { font-size: 0.48rem; }
+      .orbit-node strong { font-size: 0.66rem; }
+      .mesh-center strong { font-size: 0.9rem; }
+    }
+  </style>
 </head>
 <body>
   <main class="shell">
