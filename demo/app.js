@@ -3,6 +3,7 @@ const scenarios = {
     label: "Delivered",
     statusClass: "success",
     explanation: "The primary CDN answers successfully, so Flareless does not spend time trying backup routes. This is the clean path where the first healthy provider wins and the response headers explain that no failover was needed.",
+    showPeerSection: false,
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_SUCCESS" }
     ],
@@ -17,6 +18,7 @@ const scenarios = {
     label: "Delivered after timeout failover",
     statusClass: "success",
     explanation: "The first CDN does not answer before its timeout deadline. Flareless records that timeout, marks that attempt as failed, and immediately tries the next provider. The second CDN succeeds, so the user still gets the file without waiting for the broken provider forever.",
+    showPeerSection: false,
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_TIMEOUT", detail: "Deadline exceeded after 1200 ms" },
       { provider: "cdn-b", result: "PROVIDER_SUCCESS" }
@@ -32,6 +34,7 @@ const scenarios = {
     label: "Delivered after HTTP failover",
     statusClass: "success",
     explanation: "The first CDN responds, but it responds with a failure status instead of the content. Flareless treats that status as a bad route and tries the next CDN. The second CDN succeeds, which proves the system can route around provider blocks, bad cache states, rate limits, and server errors.",
+    showPeerSection: false,
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_HTTP_403", detail: "Provider rejected the request" },
       { provider: "cdn-b", result: "PROVIDER_SUCCESS" }
@@ -47,6 +50,7 @@ const scenarios = {
     label: "Delivered from peer layer",
     statusClass: "success",
     explanation: "Every CDN route fails, so Flareless moves to the peer assisted layer. The peer layer finds the requested public chunk and verifies it by hash before serving it. This shows how approved public content could still be reachable when the normal CDN paths are down.",
+    showPeerSection: true,
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
       { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
@@ -64,6 +68,7 @@ const scenarios = {
     label: "Blocked before origin",
     statusClass: "blocked",
     explanation: "The CDNs fail and the peer layer does not have the file. Flareless then checks the route policy before touching origin storage. In this test, origin fallback is not allowed, so the request stops there. This protects the origin from surprise traffic spikes and keeps expensive emergency fallback under explicit control.",
+    showPeerSection: true,
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
       { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
@@ -81,6 +86,7 @@ const scenarios = {
     label: "Delivered from origin fallback",
     statusClass: "success",
     explanation: "The CDNs fail and the peer layer misses, but this route allows origin fallback. Flareless sends the request to origin only after the cheaper and more resilient paths have failed. This keeps the site available while still making origin access a controlled last resort.",
+    showPeerSection: true,
     attempts: [
       { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
       { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
@@ -101,6 +107,10 @@ const headers = document.querySelector("#headers");
 const statusPill = document.querySelector("#statusPill");
 const scenarioExplanation = document.querySelector("#scenarioExplanation");
 const routingResult = document.querySelector("#routingResult");
+const demoControls = document.querySelector("#demoControls");
+const demoControlsToggle = document.querySelector("#demoControlsToggle");
+const demoChoices = document.querySelector("#demoChoices");
+const peerSection = document.querySelector("#peerSection");
 const buttons = document.querySelectorAll("button[data-scenario]");
 
 function renderScenario(scenarioKey) {
@@ -133,6 +143,19 @@ function renderScenario(scenarioKey) {
   statusPill.className = `status-pill ${scenario.statusClass}`;
   headers.textContent = formatHeaders(scenario.headers);
   scenarioExplanation.textContent = scenario.explanation;
+
+  if (scenario.showPeerSection) {
+    peerSection.classList.remove("is-hidden");
+  } else {
+    peerSection.classList.add("is-hidden");
+  }
+}
+
+function setControlsOpen(isOpen) {
+  demoControls.classList.toggle("is-open", isOpen);
+  demoControls.classList.toggle("is-collapsed", !isOpen);
+  demoControlsToggle.setAttribute("aria-expanded", String(isOpen));
+  demoChoices.hidden = !isOpen;
 }
 
 function scrollToRoutingResult() {
@@ -167,8 +190,20 @@ for (const button of buttons) {
   button.addEventListener("click", () => {
     const scenarioKey = button.dataset.scenario;
     renderScenario(scenarioKey);
+    setControlsOpen(false);
     scrollToRoutingResult();
   });
 }
 
+demoControlsToggle.addEventListener("click", () => {
+  setControlsOpen(!demoControls.classList.contains("is-open"));
+});
+
+window.addEventListener("scroll", () => {
+  if (window.pageYOffset < 140) {
+    setControlsOpen(true);
+  }
+}, { passive: true });
+
+setControlsOpen(true);
 renderScenario("timeout");
