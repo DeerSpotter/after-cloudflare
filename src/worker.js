@@ -2,7 +2,8 @@ import { PROVIDERS } from "./config/providers.js";
 import { createMgpManifest, createMgpProviderSnapshot, createMgpRoutePacket } from "./mgp/protocol.js";
 import { selectProviders } from "./routing/selector.js";
 import { fetchThroughProvider } from "./routing/providerFetch.js";
-import { getHealthSnapshot, markProviderFailure, markProviderSuccess } from "./routing/health.js";
+import { getHealthSnapshot, getLayeredHealthSnapshot, markProviderFailure, markProviderSuccess } from "./routing/health.js";
+import { createHealthLayers, createRouteScope } from "./routing/routeScope.js";
 import { createPeerFallbackResponse } from "./peer/peerFallback.js";
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
@@ -51,8 +52,10 @@ export default {
 
 async function routeRequest(request) {
     const startedAt = Date.now();
-    const rankedProviders = selectProviders(PROVIDERS, getHealthSnapshot());
-    const routePacket = createMgpRoutePacket(request, rankedProviders);
+    const routeScope = createRouteScope(request);
+    const healthLayers = createHealthLayers(routeScope);
+    const rankedProviders = selectProviders(PROVIDERS, getLayeredHealthSnapshot(healthLayers));
+    const routePacket = createMgpRoutePacket(request, rankedProviders, routeScope);
     const attempts = [];
 
     for (const provider of rankedProviders) {
@@ -63,7 +66,7 @@ async function routeRequest(request) {
                 provider: provider.name,
                 result: fetchResult.reason
             });
-            markProviderFailure(provider.name, normalizeFailureReason(fetchResult.reason));
+            markProviderFailureForScopes(routeScope, provider.name, normalizeFailureReason(fetchResult.reason));
             continue;
         }
 
@@ -74,7 +77,7 @@ async function routeRequest(request) {
                 provider: provider.name,
                 result: "PROVIDER_BLOCKED_" + response.status
             });
-            markProviderFailure(provider.name, "blocked-" + response.status);
+            markProviderFailureForScopes(routeScope, provider.name, "blocked-" + response.status);
             continue;
         }
 
@@ -82,13 +85,15 @@ async function routeRequest(request) {
             provider: provider.name,
             result: "PROVIDER_SUCCESS"
         });
-        markProviderSuccess(provider.name, Date.now() - startedAt);
+        markProviderSuccessForScopes(routeScope, provider.name, Date.now() - startedAt);
 
         const headers = new Headers(response.headers);
         headers.set("x-open-edge-provider", provider.name);
-        headers.set("x-mgp-route-id", routePacket.routeId);
+        headers.set("x-mgp-route-id", routePacket.requestId);
         headers.set("x-flareless-provider", provider.name);
-        headers.set("x-flareless-route-id", routePacket.routeId);
+        headers.set("x-flareless-route-id", routePacket.requestId);
+        headers.set("x-flareless-route-key", routePacket.routeKey);
+        headers.set("x-flareless-request-id", routePacket.requestId);
         headers.set("x-flareless-reason", createRouteReason(attempts));
         headers.set("x-flareless-attempts", createAttemptHeader(attempts));
 
@@ -101,6 +106,18 @@ async function routeRequest(request) {
     }
 
     return null;
+}
+
+function markProviderFailureForScopes(routeScope, providerName, reason) {
+    markProviderFailure(routeScope.routeKey, providerName, reason);
+    markProviderFailure(routeScope.chunkKey, providerName, reason);
+    markProviderFailure("global", providerName, reason);
+}
+
+function markProviderSuccessForScopes(routeScope, providerName, latencyMs) {
+    markProviderSuccess(routeScope.routeKey, providerName, latencyMs);
+    markProviderSuccess(routeScope.chunkKey, providerName, latencyMs);
+    markProviderSuccess("global", providerName, latencyMs);
 }
 
 function normalizeFailureReason(reason) {
