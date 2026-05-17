@@ -10,6 +10,12 @@ A build.
 
 An open source edge router and runtime for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
 
+## Mobile Demo
+
+[https://deerspotter.github.io/flareless/demo/](https://deerspotter.github.io/flareless/demo/)
+
+The mobile demo is static and requires no worker, backend, or paid hosting. It simulates provider timeout, HTTP status failover, peer assisted fallback, and route policy behavior for origin fallback.
+
 ## Start Here
 
 * `QUICKSTART.md` explains how to run the local runtime, tests, and simulator.
@@ -135,7 +141,7 @@ npm run simulate
 Mobile browser demo:
 
 ```text
-Open demo/index.html directly or serve the demo directory with GitHub Pages.
+https://deerspotter.github.io/flareless/demo/
 ```
 
 The demo is static and requires no worker, backend, or paid hosting. It simulates provider timeout, HTTP status failover, peer assisted fallback, and route policy behavior for origin fallback.
