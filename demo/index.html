@@ -16,7 +16,7 @@
       <h1>Route around CDN failure from your phone.</h1>
       <p class="lede">
         This static demo simulates timeout aware provider routing, HTTP failure handling,
-        peer assisted fallback, and optional origin fallback. No server is required.
+        route scoped health, route policy decisions, peer assisted fallback, and optional origin fallback. No server is required.
       </p>
     </section>
 
@@ -39,6 +39,10 @@
           <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
           <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
           <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
+          <button type="button" data-scenario="routeScopedHealth">Route failure stays scoped</button>
+          <button type="button" data-scenario="videoPolicyPeerFallback">Video policy uses peer</button>
+          <button type="button" data-scenario="privatePolicyBlocked">Private policy blocks fallback</button>
+          <button type="button" data-scenario="originPolicyAllowed">Origin policy allows fallback</button>
         </div>
       </div>
     </section>
@@ -60,6 +64,16 @@
       <h2>What is happening</h2>
       <p id="scenarioExplanation">
         Choose a static test above to see what Flareless is proving in that routing path.
+      </p>
+    </section>
+
+    <section class="card note">
+      <h2>Route policy model</h2>
+      <p>
+        Flareless routes are independent provider paths, and each route has an explicit policy. A route policy decides which providers are allowed, whether peer fallback is allowed, whether origin fallback is allowed, and whether a request should stop before origin.
+      </p>
+      <p>
+        Video routes allow peer fallback and block origin fallback. Private routes block both peer and origin fallback. Origin allowed routes skip peer fallback and allow origin fallback as a controlled last resort.
       </p>
     </section>
 
