@@ -1,0 +1,154 @@
+const scenarios = {
+  normal: {
+    label: "Delivered",
+    statusClass: "success",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_SUCCESS" }
+    ],
+    headers: {
+      "x-flareless-provider": "cdn-a",
+      "x-flareless-route-id": "demo-normal-route",
+      "x-flareless-reason": "PRIMARY_PROVIDER_SUCCESS",
+      "x-flareless-attempts": "cdn-a:PROVIDER_SUCCESS"
+    }
+  },
+  timeout: {
+    label: "Delivered after timeout failover",
+    statusClass: "success",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_TIMEOUT", detail: "Deadline exceeded after 1200 ms" },
+      { provider: "cdn-b", result: "PROVIDER_SUCCESS" }
+    ],
+    headers: {
+      "x-flareless-provider": "cdn-b",
+      "x-flareless-route-id": "demo-timeout-route",
+      "x-flareless-reason": "PROVIDER_TIMEOUT_FAILOVER",
+      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS"
+    }
+  },
+  http403: {
+    label: "Delivered after HTTP failover",
+    statusClass: "success",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_HTTP_403", detail: "Provider rejected the request" },
+      { provider: "cdn-b", result: "PROVIDER_SUCCESS" }
+    ],
+    headers: {
+      "x-flareless-provider": "cdn-b",
+      "x-flareless-route-id": "demo-http-route",
+      "x-flareless-reason": "PROVIDER_STATUS_FAILOVER",
+      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_403,cdn-b:PROVIDER_SUCCESS"
+    }
+  },
+  allCdnFailPeerSuccess: {
+    label: "Delivered from peer layer",
+    statusClass: "success",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
+      { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
+      { provider: "cdn-c", result: "PROVIDER_HTTP_429" },
+      { provider: "peer-assisted-edge", result: "PEER_SUCCESS", detail: "Hash verified chunk returned" }
+    ],
+    headers: {
+      "x-flareless-provider": "peer-assisted-edge",
+      "x-flareless-route-id": "demo-peer-route",
+      "x-flareless-reason": "ALL_CDNS_FAILED_PEER_SUCCESS",
+      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_500,cdn-c:PROVIDER_HTTP_429,peer-assisted-edge:PEER_SUCCESS"
+    }
+  },
+  peerFailOriginBlocked: {
+    label: "Blocked before origin",
+    statusClass: "blocked",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
+      { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
+      { provider: "peer-assisted-edge", result: "PEER_MISS" },
+      { provider: "origin", result: "ORIGIN_FALLBACK_NOT_ALLOWED", detail: "Route policy blocks origin fallback" }
+    ],
+    headers: {
+      "x-flareless-provider": "none",
+      "x-flareless-route-id": "demo-origin-blocked-route",
+      "x-flareless-reason": "ORIGIN_FALLBACK_NOT_ALLOWED",
+      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_500,peer-assisted-edge:PEER_MISS,origin:ORIGIN_FALLBACK_NOT_ALLOWED"
+    }
+  },
+  peerFailOriginAllowed: {
+    label: "Delivered from origin fallback",
+    statusClass: "success",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
+      { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
+      { provider: "peer-assisted-edge", result: "PEER_MISS" },
+      { provider: "origin", result: "ORIGIN_SUCCESS", detail: "Route policy allows origin fallback" }
+    ],
+    headers: {
+      "x-flareless-provider": "origin",
+      "x-flareless-route-id": "demo-origin-allowed-route",
+      "x-flareless-reason": "ORIGIN_FALLBACK_SUCCESS",
+      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_500,peer-assisted-edge:PEER_MISS,origin:ORIGIN_SUCCESS"
+    }
+  }
+};
+
+const timeline = document.querySelector("#timeline");
+const headers = document.querySelector("#headers");
+const statusPill = document.querySelector("#statusPill");
+const buttons = document.querySelectorAll("button[data-scenario]");
+
+function renderScenario(scenarioKey) {
+  const scenario = scenarios[scenarioKey];
+
+  timeline.replaceChildren();
+
+  for (const attempt of scenario.attempts) {
+    const item = document.createElement("li");
+    item.className = resultClass(attempt.result);
+
+    const provider = document.createElement("strong");
+    provider.textContent = attempt.provider;
+
+    const result = document.createElement("span");
+    result.textContent = attempt.result;
+
+    item.append(provider, result);
+
+    if (attempt.detail) {
+      const detail = document.createElement("p");
+      detail.textContent = attempt.detail;
+      item.append(detail);
+    }
+
+    timeline.append(item);
+  }
+
+  statusPill.textContent = scenario.label;
+  statusPill.className = `status-pill ${scenario.statusClass}`;
+  headers.textContent = formatHeaders(scenario.headers);
+}
+
+function resultClass(result) {
+  if (result.includes("SUCCESS")) {
+    return "success-line";
+  }
+
+  if (result.includes("NOT_ALLOWED")) {
+    return "blocked-line";
+  }
+
+  return "fail-line";
+}
+
+function formatHeaders(headerMap) {
+  return Object.entries(headerMap)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n");
+}
+
+for (const button of buttons) {
+  button.addEventListener("click", () => {
+    const scenarioKey = button.dataset.scenario;
+    renderScenario(scenarioKey);
+  });
+}
+
+renderScenario("timeout");
