@@ -16,7 +16,7 @@
       <h1>Route around CDN failure from your phone.</h1>
       <p class="lede">
         This static demo simulates timeout aware provider routing, HTTP failure handling,
-        route scoped health, route policy decisions, peer assisted fallback, and optional origin fallback. No server is required.
+        route scoped health, chunk scoped health, route policy decisions, peer assisted fallback, and optional origin fallback. No server is required.
       </p>
     </section>
 
@@ -40,6 +40,7 @@
           <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
           <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
           <button type="button" data-scenario="routeScopedHealth">Route failure stays scoped</button>
+          <button type="button" data-scenario="chunkScopedHealth">Chunk failure stays scoped</button>
           <button type="button" data-scenario="videoPolicyPeerFallback">Video policy uses peer</button>
           <button type="button" data-scenario="privatePolicyBlocked">Private policy blocks fallback</button>
           <button type="button" data-scenario="originPolicyAllowed">Origin policy allows fallback</button>
