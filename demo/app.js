@@ -136,7 +136,9 @@ function renderScenario(scenarioKey) {
 }
 
 function scrollToRoutingResult() {
-  routingResult.scrollIntoView({ behavior: "smooth", block: "start" });
+  const resultTop = routingResult.getBoundingClientRect().top + window.pageYOffset;
+  const offset = 16;
+  window.scrollTo({ top: resultTop - offset, behavior: "smooth" });
 }
 
 function resultClass(result) {
@@ -161,7 +163,9 @@ for (const button of buttons) {
   button.addEventListener("click", () => {
     const scenarioKey = button.dataset.scenario;
     renderScenario(scenarioKey);
-    scrollToRoutingResult();
+    requestAnimationFrame(() => {
+      scrollToRoutingResult();
+    });
   });
 }
 
