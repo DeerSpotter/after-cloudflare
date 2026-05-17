@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Flareless Mobile Demo</title>
-  <link rel="stylesheet" href="./style.css?v=3">
+  <link rel="stylesheet" href="./style.css?v=4">
 </head>
 <body>
   <main class="shell">
@@ -51,6 +51,73 @@
       <p id="scenarioExplanation">
         Choose a static test above to see what Flareless is proving in that routing path.
       </p>
+    </section>
+
+    <section class="peer-premium" aria-labelledby="peerNetworkTitle">
+      <div class="peer-premium-copy">
+        <p class="eyebrow">Peer assisted delivery</p>
+        <h2 id="peerNetworkTitle">Every extra device makes the recovery path stronger.</h2>
+        <p>
+          When CDN routes break, Flareless can recover through a living mesh of approved public content. More users means more possible paths, more reach, and better resilience when the normal edge is having a bad day.
+        </p>
+      </div>
+
+      <div class="mesh-card" aria-label="Peer assisted mesh diagram">
+        <div class="mesh-glow"></div>
+        <svg class="mesh-lines" viewBox="0 0 1000 720" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#9eb2ff"></stop>
+              <stop offset="50%" stop-color="#66f0c2"></stop>
+              <stop offset="100%" stop-color="#ffc857"></stop>
+            </linearGradient>
+          </defs>
+          <line x1="500" y1="360" x2="170" y2="115"></line>
+          <line x1="500" y1="360" x2="500" y2="75"></line>
+          <line x1="500" y1="360" x2="830" y2="115"></line>
+          <line x1="500" y1="360" x2="115" y2="360"></line>
+          <line x1="500" y1="360" x2="885" y2="360"></line>
+          <line x1="500" y1="360" x2="170" y2="605"></line>
+          <line x1="500" y1="360" x2="500" y2="645"></line>
+          <line x1="500" y1="360" x2="830" y2="605"></line>
+          <line x1="170" y1="115" x2="500" y2="75"></line>
+          <line x1="500" y1="75" x2="830" y2="115"></line>
+          <line x1="115" y1="360" x2="170" y2="605"></line>
+          <line x1="885" y1="360" x2="830" y2="605"></line>
+          <line x1="170" y1="605" x2="500" y2="645"></line>
+          <line x1="500" y1="645" x2="830" y2="605"></line>
+          <line x1="170" y1="115" x2="115" y2="360"></line>
+          <line x1="830" y1="115" x2="885" y2="360"></line>
+        </svg>
+
+        <div class="mesh-node node-a"><span>Phone</span><strong>User A</strong></div>
+        <div class="mesh-node node-b"><span>Laptop</span><strong>User B</strong></div>
+        <div class="mesh-node node-c"><span>Tablet</span><strong>User C</strong></div>
+        <div class="mesh-node node-d"><span>Desktop</span><strong>User D</strong></div>
+        <div class="mesh-core"><span>Flareless</span><strong>Peer mesh</strong></div>
+        <div class="mesh-node node-e"><span>Phone</span><strong>User E</strong></div>
+        <div class="mesh-node node-f"><span>Mini node</span><strong>User F</strong></div>
+        <div class="mesh-node node-g"><span>NAS</span><strong>User G</strong></div>
+        <div class="mesh-node node-h"><span>Browser</span><strong>User H</strong></div>
+      </div>
+
+      <div class="peer-metrics">
+        <article>
+          <span>01</span>
+          <strong>More participants</strong>
+          <p>Each opted in user adds another possible path for approved public chunks.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <strong>More recovery paths</strong>
+          <p>If a CDN fails, traffic can try another CDN, then peer assisted delivery.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <strong>Future micro CDN offload</strong>
+          <p>Later, Flareless may shift hot public content from peers into micro CDNs when demand grows.</p>
+        </article>
+      </div>
     </section>
   </main>
 
