@@ -1,0 +1,209 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #080b12;
+  color: #f5f7fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(83, 122, 255, 0.28), transparent 28rem),
+    linear-gradient(180deg, #080b12 0%, #0d1321 100%);
+}
+
+button,
+code,
+pre {
+  font: inherit;
+}
+
+.shell {
+  width: min(100%, 46rem);
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.hero {
+  padding: 2.5rem 0 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: #9eb2ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 1rem;
+  font-size: clamp(2.1rem, 12vw, 4.7rem);
+  line-height: 0.96;
+  letter-spacing: -0.08em;
+}
+
+h2 {
+  margin-bottom: 0.85rem;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin-bottom: 0;
+  color: #c6cfdd;
+  font-size: 1.03rem;
+  line-height: 1.55;
+}
+
+.card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.15rem;
+  background: rgba(14, 20, 35, 0.82);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(12px);
+}
+
+.path {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 0.9rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.065);
+  color: #dbe4ff;
+  font-size: 0.9rem;
+}
+
+.button-grid {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+button {
+  width: 100%;
+  min-height: 3.25rem;
+  border: 0;
+  border-radius: 0.9rem;
+  background: #f5f7fb;
+  color: #07101f;
+  font-weight: 800;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #dbe4ff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.status-pill.success {
+  background: rgba(63, 210, 142, 0.16);
+  color: #9effce;
+}
+
+.status-pill.blocked {
+  background: rgba(255, 98, 98, 0.16);
+  color: #ffb4b4;
+}
+
+.timeline {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline li {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem;
+  border-left: 0.25rem solid rgba(255, 255, 255, 0.24);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.timeline strong {
+  font-size: 0.95rem;
+}
+
+.timeline span {
+  color: #c6cfdd;
+  font-size: 0.8rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.timeline p {
+  margin: 0.2rem 0 0;
+  color: #aeb9ca;
+  font-size: 0.84rem;
+}
+
+.success-line {
+  border-color: #3fd28e !important;
+}
+
+.fail-line {
+  border-color: #ffc857 !important;
+}
+
+.blocked-line {
+  border-color: #ff6262 !important;
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #dbe4ff;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.note p {
+  margin-bottom: 0;
+  color: #c6cfdd;
+  line-height: 1.55;
+}
+
+@media (min-width: 42rem) {
+  .button-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
