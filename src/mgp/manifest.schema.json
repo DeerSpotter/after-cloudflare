@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flareless.dev/schemas/mgp-manifest-v1.schema.json",
+  "title": "Flareless MGP Manifest v1",
+  "type": "object",
+  "required": ["protocol", "assetPath", "generatedAt", "integrity", "chunks", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "protocol": {
+      "const": "mgp-manifest-v1"
+    },
+    "assetPath": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "generatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["algorithm", "sizeBytes", "sha256", "verified"],
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "sha256"
+        },
+        "sizeBytes": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "chunks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["index", "path", "offset", "sizeBytes", "sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "offset": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["provider", "url"],
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    }
+  }
+}
