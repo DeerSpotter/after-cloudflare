@@ -20,16 +20,21 @@
       </p>
     </section>
 
-    <section class="card">
-      <h2>Demo request</h2>
-      <code class="path">/video/show-name/episode-001/v17/720p/chunk-0001.ts</code>
-      <div class="button-grid" aria-label="Demo scenarios">
-        <button type="button" data-scenario="normal">Normal route</button>
-        <button type="button" data-scenario="timeout">Timeout failover</button>
-        <button type="button" data-scenario="http403">HTTP 403 failover</button>
-        <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
-        <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
-        <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
+    <section id="demoControls" class="card demo-controls is-open">
+      <button id="demoControlsToggle" class="demo-controls-toggle" type="button" aria-expanded="true" aria-controls="demoChoices">
+        <span>Demo request</span>
+        <strong>Choose a static routing test</strong>
+      </button>
+      <div id="demoChoices" class="demo-choices">
+        <code class="path">/video/show-name/episode-001/v17/720p/chunk-0001.ts</code>
+        <div class="button-grid" aria-label="Demo scenarios">
+          <button type="button" data-scenario="normal">Normal route</button>
+          <button type="button" data-scenario="timeout">Timeout failover</button>
+          <button type="button" data-scenario="http403">HTTP 403 failover</button>
+          <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
+          <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
+          <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
+        </div>
       </div>
     </section>
 
@@ -53,7 +58,7 @@
       </p>
     </section>
 
-    <section class="peer-premium" aria-labelledby="peerNetworkTitle">
+    <section id="peerSection" class="peer-premium is-hidden" aria-labelledby="peerNetworkTitle">
       <div class="peer-premium-copy">
         <p class="eyebrow">Peer assisted delivery</p>
         <h2 id="peerNetworkTitle">Every extra device makes the recovery path stronger.</h2>
