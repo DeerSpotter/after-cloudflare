@@ -1,9 +1,13 @@
-export function createMgpRoutePacket(request, rankedProviders) {
+export function createMgpRoutePacket(request, rankedProviders, routeScope = null) {
     const url = new URL(request.url);
+    const requestId = crypto.randomUUID();
+    const routeKey = routeScope?.routeKey || "route:" + normalizeRoutePath(url.pathname);
 
     return {
         protocol: "mgp-edge-v1",
-        routeId: crypto.randomUUID(),
+        routeId: requestId,
+        requestId: requestId,
+        routeKey: routeKey,
         method: request.method,
         path: url.pathname,
         createdAt: Date.now(),
@@ -53,4 +57,15 @@ function normalizeAssetPath(value) {
     }
 
     return "/" + value;
+}
+
+function normalizeRoutePath(path) {
+    const normalizedPath = normalizeAssetPath(path);
+    const slashIndex = normalizedPath.lastIndexOf("/");
+
+    if (slashIndex <= 0) {
+        return "/";
+    }
+
+    return normalizedPath.slice(0, slashIndex);
 }
