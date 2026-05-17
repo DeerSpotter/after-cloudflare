@@ -143,12 +143,12 @@ function renderScenario(scenarioKey) {
   statusPill.className = `status-pill ${scenario.statusClass}`;
   headers.textContent = formatHeaders(scenario.headers);
   scenarioExplanation.textContent = scenario.explanation;
+  setPeerSectionVisible(scenario.showPeerSection);
+}
 
-  if (scenario.showPeerSection) {
-    peerSection.classList.remove("is-hidden");
-  } else {
-    peerSection.classList.add("is-hidden");
-  }
+function setPeerSectionVisible(isVisible) {
+  peerSection.hidden = !isVisible;
+  peerSection.classList.toggle("is-hidden", !isVisible);
 }
 
 function setControlsOpen(isOpen) {
@@ -206,4 +206,5 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 
 setControlsOpen(true);
+setPeerSectionVisible(false);
 renderScenario("timeout");
