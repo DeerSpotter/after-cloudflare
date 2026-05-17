@@ -109,10 +109,10 @@ const scenarios = {
   routeScopedHealth: {
     label: "Route isolation verified",
     statusClass: "success",
-    explanation: "This test now uses the same route attempt style as the other buttons. CDN A fails for the video route, the next video chunk starts on CDN B, and an unrelated asset route still starts on CDN A. That proves one route failure does not poison unrelated routes.",
+    explanation: "CDN A fails for one video route, the next request on that same route starts on CDN B, and an unrelated asset route still starts on CDN A. This shows Flareless is not one shared failover switch where a single failure poisons every path.",
     attempts: [
-      { provider: "cdn-a", result: "PROVIDER_BLOCKED_451", detail: "Failed only for route:/video/show-a/v1." },
-      { provider: "cdn-b", result: "PROVIDER_SUCCESS", detail: "Same video route moves to backup provider." },
+      { provider: "cdn-a", result: "PROVIDER_BLOCKED_451", detail: "Failure recorded only for route:/video/show-a/v1." },
+      { provider: "cdn-b", result: "PROVIDER_SUCCESS", detail: "Same route moves to the next healthy provider." },
       { provider: "cdn-a", result: "PROVIDER_SUCCESS", detail: "Unrelated route:/assets still starts on the primary provider." }
     ],
     headers: {
@@ -122,6 +122,24 @@ const scenarios = {
       "x-flareless-policy-id": "default-public-static",
       "x-flareless-reason": "ROUTE_SCOPED_HEALTH_ISOLATION",
       "x-flareless-attempts": "route:/video/show-a/v1:cdn-a:PROVIDER_BLOCKED_451,route:/video/show-a/v1:cdn-b:PROVIDER_SUCCESS,route:/assets:cdn-a:PROVIDER_SUCCESS"
+    }
+  },
+  chunkScopedHealth: {
+    label: "Chunk isolation verified",
+    statusClass: "success",
+    explanation: "CDN A fails for one exact video chunk, so that chunk can move to CDN B without forcing the sibling chunk away from CDN A. This proves the health model can isolate failures at the content chunk level instead of treating the whole route as broken.",
+    attempts: [
+      { provider: "cdn-a", result: "PROVIDER_BLOCKED_451", detail: "Failure recorded for chunk:/video/show-a/v1/chunk-0001.m4s." },
+      { provider: "cdn-b", result: "PROVIDER_SUCCESS", detail: "The failed chunk is routed to the backup provider." },
+      { provider: "cdn-a", result: "PROVIDER_SUCCESS", detail: "Sibling chunk:/video/show-a/v1/chunk-0002.m4s still starts on the primary provider." }
+    ],
+    headers: {
+      "x-flareless-provider": "cdn-a",
+      "x-flareless-route-id": "demo-chunk-scoped-health",
+      "x-flareless-route-key": "route:/video/show-a/v1",
+      "x-flareless-policy-id": "video-public-peer-first",
+      "x-flareless-reason": "CHUNK_SCOPED_HEALTH_ISOLATION",
+      "x-flareless-attempts": "chunk:/video/show-a/v1/chunk-0001.m4s:cdn-a:PROVIDER_BLOCKED_451,chunk:/video/show-a/v1/chunk-0001.m4s:cdn-b:PROVIDER_SUCCESS,chunk:/video/show-a/v1/chunk-0002.m4s:cdn-a:PROVIDER_SUCCESS"
     }
   },
   videoPolicyPeerFallback: {
