@@ -4,7 +4,7 @@ import test from "node:test";
 import { PROVIDERS } from "../src/config/providers.js";
 import { createMgpManifest } from "../src/mgp/protocol.js";
 
-const HELLO_WORLD_SHA256 = "b94d27b9934d3e08a52e52d7da7dabfadeb6a770778cbc9c91a3c7d856559f";
+const HELLO_WORLD_SHA256 = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
 
 test("manifest includes asset integrity fields", () => {
     const manifest = createMgpManifest("video/test/v1/chunk-0001.m4s", PROVIDERS, {
