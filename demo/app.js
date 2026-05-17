@@ -100,6 +100,7 @@ const timeline = document.querySelector("#timeline");
 const headers = document.querySelector("#headers");
 const statusPill = document.querySelector("#statusPill");
 const scenarioExplanation = document.querySelector("#scenarioExplanation");
+const routingResult = document.querySelector("#routingResult");
 const buttons = document.querySelectorAll("button[data-scenario]");
 
 function renderScenario(scenarioKey) {
@@ -134,6 +135,10 @@ function renderScenario(scenarioKey) {
   scenarioExplanation.textContent = scenario.explanation;
 }
 
+function scrollToRoutingResult() {
+  routingResult.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function resultClass(result) {
   if (result.includes("SUCCESS")) {
     return "success-line";
@@ -156,6 +161,7 @@ for (const button of buttons) {
   button.addEventListener("click", () => {
     const scenarioKey = button.dataset.scenario;
     renderScenario(scenarioKey);
+    scrollToRoutingResult();
   });
 }
 
