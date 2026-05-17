@@ -282,6 +282,70 @@ test("provider fetch returns timeout result when provider does not answer before
     }
 });
 
+test("provider fetch aborts the underlying request after timeout", async () => {
+    const oldFetch = globalThis.fetch;
+    let capturedSignal = null;
+
+    globalThis.fetch = async function(request) {
+        capturedSignal = request.signal;
+        return new Promise(() => {});
+    };
+
+    try {
+        const result = await fetchThroughProvider(jsonRequest("/video/abort.m4s"), {
+            name: "slow-cdn",
+            baseUrl: "https://slow.example.com",
+            timeoutMs: 10
+        });
+
+        assert.equal(result.ok, false);
+        assert.equal(result.reason, "PROVIDER_TIMEOUT");
+        assert.notEqual(capturedSignal, null);
+        assert.equal(capturedSignal.aborted, true);
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
+test("provider fetch does not forward unsafe request headers", async () => {
+    const oldFetch = globalThis.fetch;
+    let capturedHeaders = null;
+
+    globalThis.fetch = async function(request) {
+        capturedHeaders = request.headers;
+        return new Response("ok", { status: 200 });
+    };
+
+    try {
+        const request = new Request("https://edge.example.com/video/header-test.m4s", {
+            headers: {
+                "accept": "video/mp4",
+                "range": "bytes=0-1023",
+                "authorization": "Bearer secret-token",
+                "cookie": "session=secret-cookie",
+                "x-internal-user-id": "user-123"
+            }
+        });
+
+        const result = await fetchThroughProvider(request, {
+            name: "cdn-a",
+            baseUrl: "https://cdn-a.example.com",
+            timeoutMs: 1000
+        });
+
+        assert.equal(result.ok, true);
+        assert.equal(capturedHeaders.get("accept"), "video/mp4");
+        assert.equal(capturedHeaders.get("range"), "bytes=0-1023");
+        assert.equal(capturedHeaders.get("x-open-edge-source-host"), "edge.example.com");
+        assert.equal(capturedHeaders.get("x-open-edge-provider"), "cdn-a");
+        assert.equal(capturedHeaders.has("authorization"), false);
+        assert.equal(capturedHeaders.has("cookie"), false);
+        assert.equal(capturedHeaders.has("x-internal-user-id"), false);
+    } finally {
+        globalThis.fetch = oldFetch;
+    }
+});
+
 test("all providers failing returns structured peer fallback", async () => {
     const oldFetch = globalThis.fetch;
     const urls = [];
