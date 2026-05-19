@@ -19,7 +19,7 @@ export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
 
-        if (url.pathname === "/demo/presence") {
+        if (url.pathname === "/demo/presence" || url.pathname === "/demo/presence-snapshot.json") {
             const id = env.DEMO_PRESENCE.idFromName("global-demo-presence");
             const stub = env.DEMO_PRESENCE.get(id);
             return stub.fetch(request);
