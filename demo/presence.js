@@ -14,25 +14,32 @@ style.textContent = `
   .presence-card {
     display: grid;
     gap: 1rem;
+    overflow: hidden;
   }
 
   .presence-topline {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: flex-start;
-    justify-content: space-between;
     gap: 1rem;
+  }
+
+  .presence-copy {
+    min-width: 0;
   }
 
   .presence-counts {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.6rem;
+    width: min(13rem, 100%);
+    max-width: 100%;
   }
 
   .presence-count {
     display: grid;
     place-items: center;
-    min-width: 5.5rem;
+    min-width: 0;
     min-height: 5.5rem;
     border-radius: 1.2rem;
     background: linear-gradient(180deg, rgba(102, 240, 194, 0.18), rgba(158, 178, 255, 0.18));
@@ -41,8 +48,10 @@ style.textContent = `
 
   .presence-count strong {
     display: block;
-    font-size: 2rem;
+    max-width: 100%;
+    font-size: clamp(1.45rem, 9vw, 2rem);
     line-height: 1;
+    overflow-wrap: anywhere;
   }
 
   .presence-count span {
@@ -64,6 +73,7 @@ style.textContent = `
   .presence-status {
     display: inline-flex;
     width: fit-content;
+    max-width: 100%;
     padding: 0.32rem 0.58rem;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
@@ -107,6 +117,7 @@ style.textContent = `
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    min-width: 0;
     padding: 0.78rem 0.85rem;
     border-radius: 0.85rem;
     background: rgba(255, 255, 255, 0.055);
@@ -115,14 +126,19 @@ style.textContent = `
 
   .presence-list strong {
     display: block;
+    min-width: 0;
     font-size: 0.92rem;
+    overflow-wrap: anywhere;
   }
 
   .presence-list span {
+    flex: 0 1 auto;
+    min-width: 0;
     color: #aeb9ca;
     font-size: 0.78rem;
     font-weight: 800;
     text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .presence-note {
@@ -130,9 +146,11 @@ style.textContent = `
     color: #aeb9ca;
     font-size: 0.82rem;
     line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   .presence-snapshot {
+    min-width: 0;
     padding: 0.85rem;
     border-radius: 0.9rem;
     background: rgba(255, 255, 255, 0.055);
@@ -152,6 +170,31 @@ style.textContent = `
   @media (min-width: 42rem) {
     .presence-actions {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 41.99rem) {
+    .presence-topline {
+      grid-template-columns: 1fr;
+    }
+
+    .presence-counts {
+      width: 100%;
+    }
+
+    .presence-count {
+      min-height: 4.8rem;
+      border-radius: 1rem;
+    }
+
+    .presence-list li {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .presence-list span {
+      text-align: left;
     }
   }
 `;
