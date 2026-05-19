@@ -9,14 +9,21 @@ import { createPeerFallbackResponse } from "./peer/peerFallback.js";
 import { createFallbackBlockedResponse, createOriginFallbackResponse } from "./origin/originFallback.js";
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
+import { DemoPresenceRoom } from "./demo/presenceObject.js";
 
-export { MgpSignalRoom };
+export { MgpSignalRoom, DemoPresenceRoom };
 
 const BLOCK_STATUS_CODES = new Set([403, 404, 408, 409, 423, 425, 429, 451, 500, 502, 503, 504]);
 
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
+
+        if (url.pathname === "/demo/presence") {
+            const id = env.DEMO_PRESENCE.idFromName("global-demo-presence");
+            const stub = env.DEMO_PRESENCE.get(id);
+            return stub.fetch(request);
+        }
 
         if (url.pathname === "/peer/ws") {
             const roomName = resolveSignalRoomName(request);
