@@ -1,13 +1,22 @@
 const HEARTBEAT_MS = 5000;
 const SNAPSHOT_MS = 3000;
+const BUFFER_TICK_MS = 450;
 const SESSION_KEY = "flareless-demo-presence-session-id";
-const POOL_KEY = "flareless-demo-pool-member";
 const ENDPOINT_QUERY_KEY = "presence";
 
 const endpoint = resolvePresenceEndpoint();
 const snapshotEndpoint = resolveSnapshotEndpoint(endpoint);
 const sessionId = getSessionId();
-let poolMember = localStorage.getItem(POOL_KEY) === "true";
+let poolMember = false;
+let demoRunning = false;
+let playbackStarted = false;
+let simulatedPeerCount = 0;
+let bufferLevel = 0;
+let storyStatus = "Press play to join the demo pool and start finding peer help.";
+let realViewerCount = 1;
+let realPoolCount = 0;
+let bufferTimer = null;
+let storyTimers = [];
 
 const style = document.createElement("style");
 style.textContent = `
@@ -104,6 +113,97 @@ style.textContent = `
     text-align: center;
   }
 
+  .presence-actions button.is-active {
+    outline: 2px solid #66f0c2;
+    outline-offset: 0.18rem;
+    background: linear-gradient(180deg, #ffffff 0%, #dbe4ff 100%);
+  }
+
+  .playback-demo {
+    display: grid;
+    gap: 0.85rem;
+    padding: 0.9rem;
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .playback-stage {
+    width: 100%;
+    min-height: 15rem;
+    border-radius: 1rem;
+    background: radial-gradient(circle at center, rgba(102, 240, 194, 0.13), rgba(8, 11, 18, 0.4));
+    overflow: hidden;
+  }
+
+  .playback-stage svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .svg-node {
+    fill: rgba(245, 247, 251, 0.95);
+    stroke: rgba(102, 240, 194, 0.85);
+    stroke-width: 3;
+  }
+
+  .svg-node-muted {
+    fill: rgba(245, 247, 251, 0.2);
+    stroke: rgba(255, 255, 255, 0.18);
+    stroke-width: 2;
+  }
+
+  .svg-line {
+    stroke: rgba(102, 240, 194, 0.72);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 12 10;
+    animation: peerFlow 1.2s linear infinite;
+  }
+
+  .svg-line-muted {
+    stroke: rgba(255, 255, 255, 0.12);
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+
+  .svg-text-main {
+    fill: #07101f;
+    font-size: 13px;
+    font-weight: 900;
+    text-anchor: middle;
+  }
+
+  .svg-text-soft {
+    fill: #dbe4ff;
+    font-size: 13px;
+    font-weight: 800;
+    text-anchor: middle;
+  }
+
+  .buffer-shell {
+    height: 1rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.11);
+  }
+
+  .buffer-fill {
+    width: 0%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(255, 200, 87, 0.9), rgba(102, 240, 194, 0.95));
+    transition: width 0.28s ease;
+  }
+
+  .story-status {
+    margin: 0;
+    color: #dbe4ff;
+    font-weight: 800;
+    line-height: 1.45;
+  }
+
   .presence-list {
     display: grid;
     gap: 0.6rem;
@@ -167,6 +267,12 @@ style.textContent = `
     overflow: auto;
   }
 
+  @keyframes peerFlow {
+    to {
+      stroke-dashoffset: -22;
+    }
+  }
+
   @media (min-width: 42rem) {
     .presence-actions {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -209,7 +315,7 @@ card.innerHTML = `
       <p id="presenceStatus" class="presence-status offline">Connecting</p>
       <h2>Live control plane</h2>
       <p>
-        Browsers join the demo pool through the Flareless Worker. The Worker coordinates active viewers and candidate peer nodes, while the public snapshot is exposed as a micro CDN readable status artifact.
+        Press play to show how a browser joins the pool, waits for peer help, starts playback, and fills the buffer faster as more peers appear.
       </p>
     </div>
     <div class="presence-counts" aria-label="Demo control plane counts">
@@ -224,8 +330,34 @@ card.innerHTML = `
     </div>
   </div>
   <div class="presence-actions">
-    <button id="joinPoolButton" type="button">Join demo pool</button>
-    <button id="leavePoolButton" type="button">Leave demo pool</button>
+    <button id="playDemoButton" type="button">▶ Play pool demo</button>
+    <button id="resetDemoButton" type="button">Reset demo</button>
+  </div>
+  <div class="playback-demo">
+    <div class="playback-stage" aria-label="Peer pool playback animation">
+      <svg id="poolSvg" viewBox="0 0 420 260" role="img">
+        <rect x="24" y="32" width="148" height="88" rx="18" fill="rgba(245,247,251,0.08)" stroke="rgba(255,255,255,0.18)" />
+        <text x="98" y="68" class="svg-text-soft">Viewer</text>
+        <text x="98" y="94" class="svg-text-soft">presses play</text>
+        <line id="lineA" x1="172" y1="76" x2="252" y2="76" class="svg-line-muted" />
+        <line id="lineB" x1="174" y1="116" x2="252" y2="160" class="svg-line-muted" />
+        <line id="lineC" x1="174" y1="44" x2="252" y2="26" class="svg-line-muted" />
+        <circle id="peerA" cx="292" cy="76" r="38" class="svg-node-muted" />
+        <text x="292" y="72" class="svg-text-main">Peer 1</text>
+        <text x="292" y="91" class="svg-text-main">waiting</text>
+        <circle id="peerB" cx="318" cy="166" r="38" class="svg-node-muted" />
+        <text x="318" y="162" class="svg-text-main">Peer 2</text>
+        <text x="318" y="181" class="svg-text-main">waiting</text>
+        <circle id="peerC" cx="318" cy="26" r="38" class="svg-node-muted" />
+        <text x="318" y="22" class="svg-text-main">Peer 3</text>
+        <text x="318" y="41" class="svg-text-main">waiting</text>
+        <rect x="68" y="188" width="284" height="34" rx="17" fill="rgba(255,255,255,0.11)" />
+        <rect id="svgBuffer" x="68" y="188" width="0" height="34" rx="17" fill="rgba(102,240,194,0.88)" />
+        <text id="svgPlaybackText" x="210" y="211" class="svg-text-soft">buffer empty</text>
+      </svg>
+    </div>
+    <div class="buffer-shell"><div id="bufferFill" class="buffer-fill"></div></div>
+    <p id="storyStatus" class="story-status">Press play to join the demo pool.</p>
   </div>
   <ul id="presenceList" class="presence-list"></ul>
   <div class="presence-snapshot">
@@ -248,29 +380,122 @@ const poolCount = document.querySelector("#poolCount");
 const presenceList = document.querySelector("#presenceList");
 const presenceNote = document.querySelector("#presenceNote");
 const snapshotPreview = document.querySelector("#snapshotPreview");
-const joinPoolButton = document.querySelector("#joinPoolButton");
-const leavePoolButton = document.querySelector("#leavePoolButton");
+const playDemoButton = document.querySelector("#playDemoButton");
+const resetDemoButton = document.querySelector("#resetDemoButton");
+const bufferFill = document.querySelector("#bufferFill");
+const storyStatusElement = document.querySelector("#storyStatus");
+const svgBuffer = document.querySelector("#svgBuffer");
+const svgPlaybackText = document.querySelector("#svgPlaybackText");
+const peerA = document.querySelector("#peerA");
+const peerB = document.querySelector("#peerB");
+const peerC = document.querySelector("#peerC");
+const lineA = document.querySelector("#lineA");
+const lineB = document.querySelector("#lineB");
+const lineC = document.querySelector("#lineC");
 
-joinPoolButton.addEventListener("click", () => {
-  poolMember = true;
-  localStorage.setItem(POOL_KEY, "true");
-  updatePoolButtons();
-  heartbeat();
-});
+playDemoButton.addEventListener("click", startPlaybackStory);
+resetDemoButton.addEventListener("click", resetPlaybackStory);
 
-leavePoolButton.addEventListener("click", () => {
-  poolMember = false;
-  localStorage.setItem(POOL_KEY, "false");
-  updatePoolButtons();
-  heartbeat();
-});
-
-updatePoolButtons();
+renderPlaybackStory();
 heartbeat();
 loadSnapshot();
 setInterval(heartbeat, HEARTBEAT_MS);
 setInterval(loadSnapshot, SNAPSHOT_MS);
 window.addEventListener("beforeunload", leavePresence);
+
+function startPlaybackStory() {
+  resetStoryTimers();
+  demoRunning = true;
+  playbackStarted = false;
+  poolMember = true;
+  simulatedPeerCount = 0;
+  bufferLevel = 4;
+  storyStatus = "You joined the pool. Waiting for another browser that can help.";
+  playDemoButton.classList.add("is-active");
+  renderPlaybackStory();
+  heartbeat();
+
+  storyTimers.push(setTimeout(() => {
+    simulatedPeerCount = 1;
+    storyStatus = "A second viewer appears in the pool. Playback can start from the peer path.";
+    playbackStarted = true;
+    renderPlaybackStory();
+  }, 1300));
+
+  storyTimers.push(setTimeout(() => {
+    simulatedPeerCount = 2;
+    storyStatus = "A third viewer appears. The buffer fills faster because more peer paths are available.";
+    renderPlaybackStory();
+  }, 3300));
+
+  if (bufferTimer !== null) {
+    clearInterval(bufferTimer);
+  }
+
+  bufferTimer = setInterval(() => {
+    if (demoRunning !== true) {
+      return;
+    }
+
+    const gain = playbackStarted ? 5 + (simulatedPeerCount * 6) : 2;
+    bufferLevel = Math.min(100, bufferLevel + gain);
+
+    if (bufferLevel >= 100) {
+      storyStatus = "Buffer full. Flareless found peer help and reduced pressure on the normal content path.";
+      clearInterval(bufferTimer);
+      bufferTimer = null;
+    }
+
+    renderPlaybackStory();
+  }, BUFFER_TICK_MS);
+}
+
+function resetPlaybackStory() {
+  resetStoryTimers();
+  demoRunning = false;
+  playbackStarted = false;
+  poolMember = false;
+  simulatedPeerCount = 0;
+  bufferLevel = 0;
+  storyStatus = "Press play to join the demo pool and start finding peer help.";
+  playDemoButton.classList.remove("is-active");
+  renderPlaybackStory();
+  heartbeat();
+}
+
+function resetStoryTimers() {
+  for (const timer of storyTimers) {
+    clearTimeout(timer);
+  }
+
+  storyTimers = [];
+
+  if (bufferTimer !== null) {
+    clearInterval(bufferTimer);
+    bufferTimer = null;
+  }
+}
+
+function renderPlaybackStory() {
+  const visibleViewers = Math.max(realViewerCount, 1 + simulatedPeerCount);
+  const visiblePool = Math.max(realPoolCount, poolMember ? 1 + simulatedPeerCount : 0);
+
+  presenceCount.textContent = String(visibleViewers);
+  poolCount.textContent = String(visiblePool);
+  bufferFill.style.width = `${bufferLevel}%`;
+  svgBuffer.setAttribute("width", String(Math.round(284 * bufferLevel / 100)));
+  svgPlaybackText.textContent = playbackStarted ? `${Math.round(bufferLevel)}% buffered` : bufferLevel > 0 ? "finding peers" : "buffer empty";
+  storyStatusElement.textContent = storyStatus;
+
+  setPeerState(peerA, lineA, simulatedPeerCount >= 1);
+  setPeerState(peerB, lineB, simulatedPeerCount >= 2);
+  setPeerState(peerC, lineC, simulatedPeerCount >= 3);
+}
+
+function setPeerState(node, line, isActive) {
+  node.setAttribute("class", isActive ? "svg-node" : "svg-node-muted");
+  line.setAttribute("class", isActive ? "svg-line" : "svg-line-muted");
+}
 
 async function heartbeat() {
   if (endpoint === null) {
@@ -336,10 +561,10 @@ async function loadSnapshot() {
 
 function renderSnapshot(snapshot) {
   const viewers = Array.isArray(snapshot.viewers) ? snapshot.viewers : [];
+  realViewerCount = snapshot.viewerCount || viewers.length || 1;
+  realPoolCount = snapshot.poolMemberCount || 0;
   presenceStatus.textContent = "Live";
   presenceStatus.className = "presence-status online";
-  presenceCount.textContent = String(snapshot.viewerCount || viewers.length || 1);
-  poolCount.textContent = String(snapshot.poolMemberCount || 0);
   presenceNote.textContent = `Endpoint: ${endpoint}. Snapshot route: ${snapshotEndpoint || "not configured"}. Active sessions expire after ${Math.round((snapshot.ttlMs || 15000) / 1000)} seconds without a heartbeat.`;
   presenceList.replaceChildren();
 
@@ -353,13 +578,15 @@ function renderSnapshot(snapshot) {
     item.append(label, status);
     presenceList.append(item);
   }
+
+  renderPlaybackStory();
 }
 
 function renderOffline(message) {
+  realViewerCount = 1;
+  realPoolCount = poolMember ? 1 : 0;
   presenceStatus.textContent = "Setup needed";
   presenceStatus.className = "presence-status offline";
-  presenceCount.textContent = "1";
-  poolCount.textContent = poolMember ? "1" : "0";
   presenceNote.textContent = message;
   presenceList.replaceChildren();
 
@@ -368,15 +595,10 @@ function renderOffline(message) {
   const status = document.createElement("span");
 
   label.textContent = `${createViewerLabel()} (this tab)`;
-  status.textContent = poolMember ? "local pool member" : "local only";
+  status.textContent = poolMember ? "local pool demo running" : "local only";
   item.append(label, status);
   presenceList.append(item);
-}
-
-function updatePoolButtons() {
-  joinPoolButton.disabled = poolMember;
-  leavePoolButton.disabled = !poolMember;
-  joinPoolButton.textContent = poolMember ? "In demo pool" : "Join demo pool";
+  renderPlaybackStory();
 }
 
 function resolvePresenceEndpoint() {
@@ -456,7 +678,7 @@ function currentDemoRoute() {
     return activeButton.textContent.trim();
   }
 
-  return "demo open";
+  return playbackStarted ? "pool playback demo" : "demo open";
 }
 
 function leavePresence() {
