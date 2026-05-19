@@ -1,9 +1,13 @@
 const HEARTBEAT_MS = 5000;
+const SNAPSHOT_MS = 3000;
 const SESSION_KEY = "flareless-demo-presence-session-id";
+const POOL_KEY = "flareless-demo-pool-member";
 const ENDPOINT_QUERY_KEY = "presence";
 
 const endpoint = resolvePresenceEndpoint();
+const snapshotEndpoint = resolveSnapshotEndpoint(endpoint);
 const sessionId = getSessionId();
+let poolMember = localStorage.getItem(POOL_KEY) === "true";
 
 const style = document.createElement("style");
 style.textContent = `
@@ -17,6 +21,12 @@ style.textContent = `
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+  }
+
+  .presence-counts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
   }
 
   .presence-count {
@@ -74,6 +84,16 @@ style.textContent = `
     color: #ffe1a1;
   }
 
+  .presence-actions {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .presence-actions button {
+    min-height: 2.85rem;
+    text-align: center;
+  }
+
   .presence-list {
     display: grid;
     gap: 0.6rem;
@@ -111,6 +131,29 @@ style.textContent = `
     font-size: 0.82rem;
     line-height: 1.5;
   }
+
+  .presence-snapshot {
+    padding: 0.85rem;
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .presence-snapshot h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.92rem;
+  }
+
+  .presence-snapshot pre {
+    max-height: 12rem;
+    overflow: auto;
+  }
+
+  @media (min-width: 42rem) {
+    .presence-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
 `;
 document.head.append(style);
 
@@ -121,17 +164,31 @@ card.innerHTML = `
   <div class="presence-topline">
     <div class="presence-copy">
       <p id="presenceStatus" class="presence-status offline">Connecting</p>
-      <h2>Live viewer detection</h2>
+      <h2>Live control plane</h2>
       <p>
-        This panel reports real browser sessions through the Flareless Worker presence room. It proves the demo can detect multiple active viewers before those viewers are promoted into peer assisted delivery nodes.
+        Browsers join the demo pool through the Flareless Worker. The Worker coordinates active viewers and candidate peer nodes, while the public snapshot is exposed as a micro CDN readable status artifact.
       </p>
     </div>
-    <div class="presence-count" aria-label="Active demo viewers">
-      <strong id="presenceCount">1</strong>
-      <span>viewers</span>
+    <div class="presence-counts" aria-label="Demo control plane counts">
+      <div class="presence-count">
+        <strong id="presenceCount">1</strong>
+        <span>viewers</span>
+      </div>
+      <div class="presence-count">
+        <strong id="poolCount">0</strong>
+        <span>pool</span>
+      </div>
     </div>
   </div>
+  <div class="presence-actions">
+    <button id="joinPoolButton" type="button">Join demo pool</button>
+    <button id="leavePoolButton" type="button">Leave demo pool</button>
+  </div>
   <ul id="presenceList" class="presence-list"></ul>
+  <div class="presence-snapshot">
+    <h3>Micro CDN public snapshot</h3>
+    <pre id="snapshotPreview">Waiting for snapshot route.</pre>
+  </div>
   <p id="presenceNote" class="presence-note">
     Waiting for the presence endpoint.
   </p>
@@ -144,11 +201,32 @@ if (demoControls !== null && demoControls.parentElement !== null) {
 
 const presenceStatus = document.querySelector("#presenceStatus");
 const presenceCount = document.querySelector("#presenceCount");
+const poolCount = document.querySelector("#poolCount");
 const presenceList = document.querySelector("#presenceList");
 const presenceNote = document.querySelector("#presenceNote");
+const snapshotPreview = document.querySelector("#snapshotPreview");
+const joinPoolButton = document.querySelector("#joinPoolButton");
+const leavePoolButton = document.querySelector("#leavePoolButton");
 
+joinPoolButton.addEventListener("click", () => {
+  poolMember = true;
+  localStorage.setItem(POOL_KEY, "true");
+  updatePoolButtons();
+  heartbeat();
+});
+
+leavePoolButton.addEventListener("click", () => {
+  poolMember = false;
+  localStorage.setItem(POOL_KEY, "false");
+  updatePoolButtons();
+  heartbeat();
+});
+
+updatePoolButtons();
 heartbeat();
+loadSnapshot();
 setInterval(heartbeat, HEARTBEAT_MS);
+setInterval(loadSnapshot, SNAPSHOT_MS);
 window.addEventListener("beforeunload", leavePresence);
 
 async function heartbeat() {
@@ -166,7 +244,8 @@ async function heartbeat() {
       body: JSON.stringify({
         sessionId: sessionId,
         label: createViewerLabel(),
-        route: currentDemoRoute()
+        route: currentDemoRoute(),
+        poolMember: poolMember
       })
     });
 
@@ -182,12 +261,43 @@ async function heartbeat() {
   }
 }
 
+async function loadSnapshot() {
+  if (snapshotEndpoint === null) {
+    snapshotPreview.textContent = "No snapshot endpoint configured yet.";
+    return;
+  }
+
+  try {
+    const response = await fetch(snapshotEndpoint, {
+      cache: "no-store"
+    });
+
+    if (response.ok !== true) {
+      snapshotPreview.textContent = `Snapshot route returned HTTP ${response.status}.`;
+      return;
+    }
+
+    const snapshot = await response.json();
+    snapshotPreview.textContent = JSON.stringify({
+      protocol: snapshot.protocol,
+      route: snapshot.route,
+      viewerCount: snapshot.viewerCount,
+      poolMemberCount: snapshot.poolMemberCount,
+      cachePolicy: snapshot.cachePolicy,
+      serverTime: snapshot.serverTime
+    }, null, 2);
+  } catch (error) {
+    snapshotPreview.textContent = "Snapshot route is not reachable yet.";
+  }
+}
+
 function renderSnapshot(snapshot) {
   const viewers = Array.isArray(snapshot.viewers) ? snapshot.viewers : [];
   presenceStatus.textContent = "Live";
   presenceStatus.className = "presence-status online";
   presenceCount.textContent = String(snapshot.viewerCount || viewers.length || 1);
-  presenceNote.textContent = `Endpoint: ${endpoint}. Active sessions expire after ${Math.round((snapshot.ttlMs || 15000) / 1000)} seconds without a heartbeat.`;
+  poolCount.textContent = String(snapshot.poolMemberCount || 0);
+  presenceNote.textContent = `Endpoint: ${endpoint}. Snapshot route: ${snapshotEndpoint || "not configured"}. Active sessions expire after ${Math.round((snapshot.ttlMs || 15000) / 1000)} seconds without a heartbeat.`;
   presenceList.replaceChildren();
 
   for (const viewer of viewers) {
@@ -196,7 +306,7 @@ function renderSnapshot(snapshot) {
     const status = document.createElement("span");
 
     label.textContent = viewer.sessionId === sessionId ? `${viewer.label} (this tab)` : viewer.label;
-    status.textContent = `${viewer.route} · ${viewer.secondsAgo}s ago`;
+    status.textContent = `${viewer.poolMember ? "pool member" : "viewer"} · ${viewer.route} · ${viewer.secondsAgo}s ago`;
     item.append(label, status);
     presenceList.append(item);
   }
@@ -206,6 +316,7 @@ function renderOffline(message) {
   presenceStatus.textContent = "Setup needed";
   presenceStatus.className = "presence-status offline";
   presenceCount.textContent = "1";
+  poolCount.textContent = poolMember ? "1" : "0";
   presenceNote.textContent = message;
   presenceList.replaceChildren();
 
@@ -214,9 +325,15 @@ function renderOffline(message) {
   const status = document.createElement("span");
 
   label.textContent = `${createViewerLabel()} (this tab)`;
-  status.textContent = "local only";
+  status.textContent = poolMember ? "local pool member" : "local only";
   item.append(label, status);
   presenceList.append(item);
+}
+
+function updatePoolButtons() {
+  joinPoolButton.disabled = poolMember;
+  leavePoolButton.disabled = !poolMember;
+  joinPoolButton.textContent = poolMember ? "In demo pool" : "Join demo pool";
 }
 
 function resolvePresenceEndpoint() {
@@ -235,6 +352,17 @@ function resolvePresenceEndpoint() {
   }
 
   return `${window.location.origin}/demo/presence`;
+}
+
+function resolveSnapshotEndpoint(presenceEndpoint) {
+  if (presenceEndpoint === null) {
+    return null;
+  }
+
+  const url = new URL(presenceEndpoint);
+  url.pathname = "/demo/presence-snapshot.json";
+  url.search = "";
+  return url.toString();
 }
 
 function normalizeEndpoint(value) {
