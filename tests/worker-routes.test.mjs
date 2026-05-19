@@ -40,6 +40,16 @@ function jsonRequest(path) {
     return new Request("https://edge.example.com" + path);
 }
 
+function presencePost(body) {
+    return new Request("https://edge.example.com/demo/presence", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify(body)
+    });
+}
+
 test("worker exports default fetch and Durable Object classes", () => {
     assert.equal(typeof worker.fetch, "function");
     assert.equal(typeof MgpSignalRoom, "function");
@@ -48,22 +58,17 @@ test("worker exports default fetch and Durable Object classes", () => {
 
 test("/demo/presence records real active viewer heartbeat", async () => {
     const env = makeEnv();
-    const response = await worker.fetch(new Request("https://edge.example.com/demo/presence", {
-        method: "POST",
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify({
-            sessionId: "viewer-1",
-            label: "Phone viewer",
-            route: "Timeout failover"
-        })
+    const response = await worker.fetch(presencePost({
+        sessionId: "viewer-1",
+        label: "Phone viewer",
+        route: "Timeout failover"
     }), env, {});
     const body = await response.json();
 
     assert.equal(response.status, 200);
     assert.equal(body.protocol, "flareless-demo-presence-v1");
     assert.equal(body.viewerCount, 1);
+    assert.equal(body.poolMemberCount, 0);
     assert.equal(body.viewers[0].sessionId, "viewer-1");
     assert.equal(body.viewers[0].label, "Phone viewer");
     assert.equal(body.viewers[0].route, "Timeout failover");
@@ -72,28 +77,16 @@ test("/demo/presence records real active viewer heartbeat", async () => {
 test("/demo/presence returns shared viewer count", async () => {
     const env = makeEnv();
 
-    await worker.fetch(new Request("https://edge.example.com/demo/presence", {
-        method: "POST",
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify({
-            sessionId: "viewer-1",
-            label: "Phone viewer",
-            route: "Normal route"
-        })
+    await worker.fetch(presencePost({
+        sessionId: "viewer-1",
+        label: "Phone viewer",
+        route: "Normal route"
     }), env, {});
 
-    await worker.fetch(new Request("https://edge.example.com/demo/presence", {
-        method: "POST",
-        headers: {
-            "content-type": "application/json"
-        },
-        body: JSON.stringify({
-            sessionId: "viewer-2",
-            label: "Desktop viewer",
-            route: "HTTP 403 failover"
-        })
+    await worker.fetch(presencePost({
+        sessionId: "viewer-2",
+        label: "Desktop viewer",
+        route: "HTTP 403 failover"
     }), env, {});
 
     const response = await worker.fetch(jsonRequest("/demo/presence"), env, {});
@@ -102,6 +95,56 @@ test("/demo/presence returns shared viewer count", async () => {
     assert.equal(response.status, 200);
     assert.equal(body.viewerCount, 2);
     assert.equal(body.viewers.length, 2);
+});
+
+test("/demo/presence tracks opted in pool members", async () => {
+    const env = makeEnv();
+
+    await worker.fetch(presencePost({
+        sessionId: "viewer-1",
+        label: "Phone viewer",
+        route: "All CDNs fail, peer works",
+        poolMember: true
+    }), env, {});
+
+    await worker.fetch(presencePost({
+        sessionId: "viewer-2",
+        label: "Desktop viewer",
+        route: "Normal route",
+        poolMember: false
+    }), env, {});
+
+    const response = await worker.fetch(jsonRequest("/demo/presence"), env, {});
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.viewerCount, 2);
+    assert.equal(body.poolMemberCount, 1);
+    assert.equal(body.poolMembers.length, 1);
+    assert.equal(body.poolMembers[0].sessionId, "viewer-1");
+    assert.equal(body.poolMembers[0].poolMember, true);
+});
+
+test("/demo/presence-snapshot.json exposes micro CDN readable snapshot", async () => {
+    const env = makeEnv();
+
+    await worker.fetch(presencePost({
+        sessionId: "viewer-1",
+        label: "Phone viewer",
+        route: "Video policy uses peer",
+        poolMember: true
+    }), env, {});
+
+    const response = await worker.fetch(jsonRequest("/demo/presence-snapshot.json"), env, {});
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("cache-control"), "public, max-age=2");
+    assert.equal(body.protocol, "flareless-micro-cdn-status-v1");
+    assert.equal(body.route, "/demo/presence-snapshot.json");
+    assert.equal(body.cachePolicy, "micro-cdn-readable-control-snapshot");
+    assert.equal(body.viewerCount, 1);
+    assert.equal(body.poolMemberCount, 1);
 });
 
 test("/health returns provider snapshot", async () => {
