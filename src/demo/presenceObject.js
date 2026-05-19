@@ -18,7 +18,7 @@ export class DemoPresenceRoom {
             });
         }
 
-        if (url.pathname !== "/demo/presence") {
+        if (url.pathname !== "/demo/presence" && url.pathname !== "/demo/presence-snapshot.json") {
             return jsonResponse({
                 protocol: "flareless-demo-presence-v1",
                 status: "not-found"
@@ -28,7 +28,7 @@ export class DemoPresenceRoom {
         this.removeExpiredSessions();
 
         if (request.method === "GET") {
-            return jsonResponse(this.createSnapshot());
+            return jsonResponse(this.createSnapshot(url.pathname));
         }
 
         if (request.method === "POST") {
@@ -42,7 +42,7 @@ export class DemoPresenceRoom {
                 this.sessions.delete(sessionId);
             }
 
-            return jsonResponse(this.createSnapshot());
+            return jsonResponse(this.createSnapshot(url.pathname));
         }
 
         return jsonResponse({
@@ -78,31 +78,37 @@ export class DemoPresenceRoom {
             sessionId: sessionId,
             label: normalizeLabel(payload.label),
             route: normalizeRoute(payload.route),
+            poolMember: payload.poolMember === true,
             lastSeen: Date.now()
         });
 
-        return jsonResponse(this.createSnapshot());
+        return jsonResponse(this.createSnapshot("/demo/presence"));
     }
 
-    createSnapshot() {
+    createSnapshot(pathname) {
         this.removeExpiredSessions();
 
-        const viewers = Array.from(this.sessions.values())
+        const activeSessions = Array.from(this.sessions.values());
+        const poolMembers = activeSessions.filter(session => session.poolMember === true);
+
+        const viewers = activeSessions
             .sort((left, right) => right.lastSeen - left.lastSeen)
             .slice(0, MAX_VIEWERS_RETURNED)
-            .map(session => ({
-                sessionId: session.sessionId,
-                label: session.label,
-                route: session.route,
-                secondsAgo: Math.max(0, Math.round((Date.now() - session.lastSeen) / 1000))
-            }));
+            .map(session => createPublicSession(session));
 
         return {
-            protocol: "flareless-demo-presence-v1",
+            protocol: pathname === "/demo/presence-snapshot.json" ? "flareless-micro-cdn-status-v1" : "flareless-demo-presence-v1",
             status: "ok",
-            viewerCount: this.sessions.size,
+            route: pathname,
+            viewerCount: activeSessions.length,
+            poolMemberCount: poolMembers.length,
             viewers: viewers,
+            poolMembers: poolMembers
+                .sort((left, right) => right.lastSeen - left.lastSeen)
+                .slice(0, MAX_VIEWERS_RETURNED)
+                .map(session => createPublicSession(session)),
             ttlMs: SESSION_TTL_MS,
+            cachePolicy: pathname === "/demo/presence-snapshot.json" ? "micro-cdn-readable-control-snapshot" : "live-control-plane",
             serverTime: new Date().toISOString()
         };
     }
@@ -116,6 +122,16 @@ export class DemoPresenceRoom {
             }
         }
     }
+}
+
+function createPublicSession(session) {
+    return {
+        sessionId: session.sessionId,
+        label: session.label,
+        route: session.route,
+        poolMember: session.poolMember === true,
+        secondsAgo: Math.max(0, Math.round((Date.now() - session.lastSeen) / 1000))
+    };
 }
 
 function normalizeId(value) {
@@ -157,16 +173,16 @@ function normalizeRoute(value) {
 function jsonResponse(body, status = 200) {
     return Response.json(body, {
         status: status,
-        headers: corsHeaders()
+        headers: corsHeaders(body.route)
     });
 }
 
-function corsHeaders() {
+function corsHeaders(route = "/demo/presence") {
     return {
         "access-control-allow-origin": "*",
         "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
         "access-control-allow-headers": "content-type",
-        "cache-control": "no-store",
+        "cache-control": route === "/demo/presence-snapshot.json" ? "public, max-age=2" : "no-store",
         "content-type": "application/json"
     };
 }
