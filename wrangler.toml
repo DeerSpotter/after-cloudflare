@@ -12,6 +12,14 @@ TERTIARY_PROVIDER = "cdn-c"
 name = "MGP_SIGNAL"
 class_name = "MgpSignalRoom"
 
+[[durable_objects.bindings]]
+name = "DEMO_PRESENCE"
+class_name = "DemoPresenceRoom"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MgpSignalRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["DemoPresenceRoom"]
