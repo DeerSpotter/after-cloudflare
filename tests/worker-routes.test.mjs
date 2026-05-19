@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { beforeEach } from "node:test";
 
-import worker, { MgpSignalRoom } from "../src/worker.js";
+import worker, { MgpSignalRoom, DemoPresenceRoom } from "../src/worker.js";
 import { fetchThroughProvider } from "../src/routing/providerFetch.js";
 import { resetHealthState } from "../src/routing/health.js";
 
@@ -10,6 +10,8 @@ beforeEach(() => {
 });
 
 function makeEnv() {
+    const presenceRoom = new DemoPresenceRoom({}, {});
+
     return {
         MGP_SIGNAL: {
             idFromName(name) {
@@ -22,6 +24,14 @@ function makeEnv() {
                     }
                 };
             }
+        },
+        DEMO_PRESENCE: {
+            idFromName(name) {
+                return name;
+            },
+            get(id) {
+                return presenceRoom;
+            }
         }
     };
 }
@@ -30,9 +40,68 @@ function jsonRequest(path) {
     return new Request("https://edge.example.com" + path);
 }
 
-test("worker exports default fetch and Durable Object class", () => {
+test("worker exports default fetch and Durable Object classes", () => {
     assert.equal(typeof worker.fetch, "function");
     assert.equal(typeof MgpSignalRoom, "function");
+    assert.equal(typeof DemoPresenceRoom, "function");
+});
+
+test("/demo/presence records real active viewer heartbeat", async () => {
+    const env = makeEnv();
+    const response = await worker.fetch(new Request("https://edge.example.com/demo/presence", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify({
+            sessionId: "viewer-1",
+            label: "Phone viewer",
+            route: "Timeout failover"
+        })
+    }), env, {});
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.protocol, "flareless-demo-presence-v1");
+    assert.equal(body.viewerCount, 1);
+    assert.equal(body.viewers[0].sessionId, "viewer-1");
+    assert.equal(body.viewers[0].label, "Phone viewer");
+    assert.equal(body.viewers[0].route, "Timeout failover");
+});
+
+test("/demo/presence returns shared viewer count", async () => {
+    const env = makeEnv();
+
+    await worker.fetch(new Request("https://edge.example.com/demo/presence", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify({
+            sessionId: "viewer-1",
+            label: "Phone viewer",
+            route: "Normal route"
+        })
+    }), env, {});
+
+    await worker.fetch(new Request("https://edge.example.com/demo/presence", {
+        method: "POST",
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify({
+            sessionId: "viewer-2",
+            label: "Desktop viewer",
+            route: "HTTP 403 failover"
+        })
+    }), env, {});
+
+    const response = await worker.fetch(jsonRequest("/demo/presence"), env, {});
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(body.viewerCount, 2);
+    assert.equal(body.viewers.length, 2);
 });
 
 test("/health returns provider snapshot", async () => {
