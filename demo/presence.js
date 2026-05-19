@@ -230,11 +230,11 @@ function resolvePresenceEndpoint() {
     return normalizeEndpoint(window.FLARELESS_PRESENCE_ENDPOINT);
   }
 
-  if (window.location.pathname.startsWith("/demo") === false) {
-    return `${window.location.origin}/demo/presence`;
+  if (window.location.hostname.endsWith("github.io")) {
+    return null;
   }
 
-  return null;
+  return `${window.location.origin}/demo/presence`;
 }
 
 function normalizeEndpoint(value) {
@@ -295,5 +295,9 @@ function leavePresence() {
 
   const url = new URL(endpoint);
   url.searchParams.set("sessionId", sessionId);
-  navigator.sendBeacon(url.toString(), new Blob([], { type: "text/plain" }));
+
+  fetch(url.toString(), {
+    method: "DELETE",
+    keepalive: true
+  }).catch(() => {});
 }
