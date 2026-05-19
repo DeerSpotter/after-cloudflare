@@ -221,6 +221,8 @@ const demoControlsSymbol = document.querySelector("#demoControlsSymbol");
 const demoChoices = document.querySelector("#demoChoices");
 const peerSection = document.querySelector("#peerSection");
 const buttons = document.querySelectorAll("button[data-scenario]");
+let previousScrollY = window.pageYOffset;
+let upwardScrollTotal = 0;
 
 function renderScenario(scenarioKey) {
   const scenario = scenarios[scenarioKey];
@@ -325,9 +327,21 @@ demoControlsToggle.addEventListener("click", () => {
 });
 
 window.addEventListener("scroll", () => {
-  if (window.pageYOffset < 140) {
-    setControlsOpen(true);
+  const currentScrollY = window.pageYOffset;
+  const delta = previousScrollY - currentScrollY;
+
+  if (delta > 0) {
+    upwardScrollTotal += delta;
+  } else if (delta < 0) {
+    upwardScrollTotal = 0;
   }
+
+  if (currentScrollY < 420 || upwardScrollTotal > 90) {
+    setControlsOpen(true);
+    upwardScrollTotal = 0;
+  }
+
+  previousScrollY = currentScrollY;
 }, { passive: true });
 
 setControlsOpen(true);
