@@ -16,7 +16,9 @@
       <h1>Route around CDN failure from your phone.</h1>
       <p class="lede">
         This static demo simulates timeout aware provider routing, HTTP failure handling,
-        route scoped health, chunk scoped health, route policy decisions, peer assisted fallback, and optional origin fallback. Live viewer detection uses the Flareless Worker presence room when configured.
+        route scoped health, chunk scoped health, route policy decisions, peer assisted fallback,
+        optional origin fallback, and an agent assisted control layer that explains failures before suggesting safe policy changes.
+        Live viewer detection uses the Flareless Worker presence room when configured.
       </p>
     </section>
 
@@ -37,6 +39,7 @@
           <button type="button" data-scenario="timeout">Timeout failover</button>
           <button type="button" data-scenario="http403">HTTP 403 failover</button>
           <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
+          <button type="button" data-scenario="agentAssistedControl">Agent assisted CDN control</button>
           <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
           <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
           <button type="button" data-scenario="routeScopedHealth">Route failure stays scoped</button>
@@ -54,6 +57,20 @@
         <span id="statusPill" class="status-pill idle">Idle</span>
       </div>
       <ol id="timeline" class="timeline"></ol>
+    </section>
+
+    <section id="agentSection" class="card agent-section is-hidden" hidden>
+      <div class="agent-header">
+        <div>
+          <p class="demo-controls-label">Agent assist layer</p>
+          <h2>Control note</h2>
+        </div>
+        <span id="agentMode" class="status-pill agent">Observe only</span>
+      </div>
+      <p id="agentSummary">Run the agent assisted scenario to see the control layer explain the routing failure.</p>
+      <ol id="agentSteps" class="agent-steps"></ol>
+      <div id="agentRecommendation" class="agent-recommendation"></div>
+      <button id="applyAgentPolicy" class="agent-apply" type="button">Apply suggested policy in simulation</button>
     </section>
 
     <section class="card">
@@ -74,7 +91,7 @@
         Flareless routes are independent provider paths, and each route has an explicit policy. A route policy decides which providers are allowed, whether peer fallback is allowed, whether origin fallback is allowed, and whether a request should stop before origin.
       </p>
       <p>
-        Video routes allow peer fallback and block origin fallback. Private routes block both peer and origin fallback. Origin allowed routes skip peer fallback and allow origin fallback as a controlled last resort.
+        Video routes allow peer fallback and block origin fallback. Private routes block both peer and origin fallback. Origin allowed routes skip peer fallback and allow origin fallback as a controlled last resort. The agent assist layer does not replace this fast routing path. It observes results, explains the failure chain, and can recommend bounded policy changes for review.
       </p>
     </section>
 
