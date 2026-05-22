@@ -52,7 +52,6 @@ const agentMode = document.querySelector("#agentMode");
 const agentSummary = document.querySelector("#agentSummary");
 const agentSteps = document.querySelector("#agentSteps");
 const agentRecommendation = document.querySelector("#agentRecommendation");
-const applyAgentPolicy = document.querySelector("#applyAgentPolicy");
 const buttons = document.querySelectorAll("button[data-scenario]");
 let previousScrollY = window.pageYOffset;
 let upwardScrollTotal = 0;
@@ -141,9 +140,6 @@ function renderAgentSection(agent) {
   agentMode.textContent = agent.mode;
   agentSummary.textContent = agent.summary;
   agentRecommendation.textContent = agent.recommendation;
-  applyAgentPolicy.hidden = false;
-  applyAgentPolicy.textContent = "Apply suggested policy in simulation";
-  applyAgentPolicy.disabled = false;
   agentSteps.replaceChildren();
 
   for (const step of agent.steps) {
@@ -209,18 +205,6 @@ for (const button of buttons) {
     scrollToRoutingResult();
   });
 }
-
-applyAgentPolicy.addEventListener("click", () => {
-  if (activeScenarioKey !== "agentAssistedControl") {
-    return;
-  }
-
-  timeline.append(createTimelineItem("route-policy", "SIMULATED_POLICY_APPLIED", "Simulation applied a route scoped cooldown and peer first retry for the next request. No live production policy was changed."));
-  agentMode.textContent = "Simulated apply complete";
-  applyAgentPolicy.textContent = "Suggested policy applied in simulation";
-  applyAgentPolicy.disabled = true;
-  headers.textContent = `${headers.textContent}\nx-flareless-agent-simulated-apply: temporary-route-policy-update`;
-});
 
 demoControlsToggle.addEventListener("click", () => {
   setControlsOpen(!demoControls.classList.contains("is-open"));
