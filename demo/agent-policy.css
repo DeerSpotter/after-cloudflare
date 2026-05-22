@@ -21,7 +21,7 @@
 .policy-svg {
   display: block;
   width: 100%;
-  min-height: 13rem;
+  min-height: 17rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0.9rem;
   background:
@@ -109,16 +109,38 @@
   }
 
   .policy-svg {
-    min-height: 11rem;
+    width: calc(100% + 1.5rem);
+    min-height: 20rem;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0.7rem;
   }
 
   .policy-node text,
   .policy-agent-node text,
   .policy-suggestion-node text {
-    font-size: 0.72rem;
+    font-size: 1rem;
   }
 
   .policy-node-note {
-    font-size: 0.54rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .policy-node circle {
+    r: 42px;
+  }
+
+  .policy-agent-node rect {
+    transform: scale(1.12);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .policy-suggestion-node rect {
+    transform: scale(1.08);
+    transform-box: fill-box;
+    transform-origin: center;
   }
 }
