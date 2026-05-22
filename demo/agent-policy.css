@@ -1,0 +1,124 @@
+.route-policy-demo {
+  margin-top: 0.95rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(158, 178, 255, 0.18);
+  border-radius: 1rem;
+  background: rgba(2, 7, 18, 0.42);
+}
+
+.route-policy-demo-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.route-policy-demo-header h2 {
+  margin-bottom: 0;
+}
+
+.policy-svg {
+  display: block;
+  width: 100%;
+  min-height: 13rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    rgba(6, 11, 23, 0.76);
+  background-size: 2rem 2rem, 2rem 2rem, auto;
+}
+
+.policy-line,
+.policy-observe-line {
+  stroke: rgba(219, 228, 255, 0.22);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.policy-observe-line {
+  stroke-width: 2;
+  stroke-dasharray: 6 8;
+}
+
+.policy-node circle,
+.policy-agent-node rect,
+.policy-suggestion-node rect {
+  fill: rgba(245, 247, 251, 0.95);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 2;
+  transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+}
+
+.policy-node text,
+.policy-agent-node text,
+.policy-suggestion-node text {
+  fill: #07101f;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-anchor: middle;
+}
+
+.policy-node-note {
+  font-size: 0.62rem !important;
+  font-weight: 800 !important;
+  opacity: 0.72;
+}
+
+.policy-node.is-active circle,
+.policy-agent-node.is-active rect,
+.policy-suggestion-node.is-active rect {
+  fill: #9eb2ff;
+  stroke: #dbe4ff;
+  filter: drop-shadow(0 0 0.85rem rgba(158, 178, 255, 0.45));
+}
+
+.policy-node.is-fail circle {
+  fill: #ffc857;
+  stroke: #ffe3a0;
+}
+
+.policy-node.is-success circle,
+.policy-suggestion-node.is-success rect {
+  fill: #66f0c2;
+  stroke: #c8ffe9;
+  filter: drop-shadow(0 0 0.9rem rgba(102, 240, 194, 0.42));
+}
+
+.policy-agent-node.is-success rect {
+  fill: #dbe4ff;
+  stroke: #ffffff;
+  filter: drop-shadow(0 0 0.9rem rgba(219, 228, 255, 0.38));
+}
+
+.policy-demo-text {
+  min-height: 2.8rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: #dbe4ff;
+  line-height: 1.45;
+}
+
+@media (max-width: 41.99rem) {
+  .route-policy-demo {
+    padding: 0.75rem;
+  }
+
+  .policy-svg {
+    min-height: 11rem;
+  }
+
+  .policy-node text,
+  .policy-agent-node text,
+  .policy-suggestion-node text {
+    font-size: 0.72rem;
+  }
+
+  .policy-node-note {
+    font-size: 0.54rem !important;
+  }
+}
