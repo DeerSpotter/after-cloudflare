@@ -32,6 +32,20 @@ function setPolicyButtonReady() {
   policyButton.textContent = "Play route policy simulation";
 }
 
+function stampPolicyDemoLoadTime() {
+  if (policyText === null) {
+    return;
+  }
+
+  const loadedAt = new Date().toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+
+  policyText.textContent = `Policy demo loaded at ${loadedAt}. Press play to show the agent assisted route policy simulation.`;
+}
+
 function setPolicyNode(nodeId, className, message, status) {
   const node = document.querySelector(`#${nodeId}`);
 
@@ -100,4 +114,5 @@ if (policyButton !== null) {
   });
 
   setPolicyButtonReady();
+  stampPolicyDemoLoadTime();
 }
