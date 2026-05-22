@@ -11,6 +11,7 @@ const policyNodeIds = [
   "policyAgent",
   "policySuggestion"
 ];
+let policyDemoPlaying = false;
 
 function clearPolicyDemo() {
   for (const nodeId of policyNodeIds) {
@@ -20,6 +21,15 @@ function clearPolicyDemo() {
       node.classList.remove("is-active", "is-fail", "is-success");
     }
   }
+}
+
+function setPolicyButtonReady() {
+  if (policyButton === null || policyDemoPlaying) {
+    return;
+  }
+
+  policyButton.disabled = false;
+  policyButton.textContent = "Play route policy simulation";
 }
 
 function setPolicyNode(nodeId, className, message, status) {
@@ -39,10 +49,11 @@ function setPolicyNode(nodeId, className, message, status) {
 }
 
 function playPolicyDemo() {
-  if (policyButton === null) {
+  if (policyButton === null || policyDemoPlaying) {
     return;
   }
 
+  policyDemoPlaying = true;
   clearPolicyDemo();
   policyButton.disabled = true;
   policyButton.textContent = "Playing route policy simulation";
@@ -63,6 +74,7 @@ function playPolicyDemo() {
       setPolicyNode(step[0], step[1], step[2], step[3]);
 
       if (index === steps.length - 1) {
+        policyDemoPlaying = false;
         policyButton.textContent = "Replay route policy simulation";
         policyButton.disabled = false;
       }
@@ -71,7 +83,21 @@ function playPolicyDemo() {
 }
 
 if (policyButton !== null) {
-  policyButton.addEventListener("click", () => {
+  policyButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     playPolicyDemo();
+  }, true);
+
+  const policyButtonObserver = new MutationObserver(() => {
+    setPolicyButtonReady();
   });
+
+  policyButtonObserver.observe(policyButton, {
+    characterData: true,
+    childList: true,
+    subtree: true
+  });
+
+  setPolicyButtonReady();
 }
