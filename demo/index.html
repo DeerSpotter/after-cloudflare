@@ -90,44 +90,14 @@
           <line class="policy-observe-line" x1="380" y1="88" x2="270" y2="128"></line>
           <line class="policy-observe-line" x1="380" y1="88" x2="490" y2="128"></line>
 
-          <g id="policyUser" class="policy-node" transform="translate(90 150)">
-            <circle r="34"></circle>
-            <text y="5">User</text>
-          </g>
-          <g id="policyCdnA" class="policy-node" transform="translate(210 150)">
-            <circle r="34"></circle>
-            <text y="0">CDN A</text>
-            <text class="policy-node-note" y="17">timeout</text>
-          </g>
-          <g id="policyCdnB" class="policy-node" transform="translate(330 150)">
-            <circle r="34"></circle>
-            <text y="0">CDN B</text>
-            <text class="policy-node-note" y="17">429</text>
-          </g>
-          <g id="policyCdnC" class="policy-node" transform="translate(450 150)">
-            <circle r="34"></circle>
-            <text y="0">CDN C</text>
-            <text class="policy-node-note" y="17">500</text>
-          </g>
-          <g id="policyPeer" class="policy-node" transform="translate(570 150)">
-            <circle r="34"></circle>
-            <text y="0">Peer</text>
-            <text class="policy-node-note" y="17">verified</text>
-          </g>
-          <g id="policyDelivered" class="policy-node" transform="translate(690 150)">
-            <circle r="34"></circle>
-            <text y="5">Done</text>
-          </g>
-          <g id="policyAgent" class="policy-agent-node" transform="translate(380 58)">
-            <rect x="-82" y="-29" width="164" height="58" rx="18"></rect>
-            <text y="-4">Agent assist</text>
-            <text class="policy-node-note" y="15">observe and recommend</text>
-          </g>
-          <g id="policySuggestion" class="policy-suggestion-node" transform="translate(380 238)">
-            <rect x="-170" y="-28" width="340" height="56" rx="18"></rect>
-            <text y="-4">Suggested route policy</text>
-            <text class="policy-node-note" y="15">cool down CDN A, keep peer enabled</text>
-          </g>
+          <g id="policyUser" class="policy-node" transform="translate(90 150)"><circle r="34"></circle><text y="5">User</text></g>
+          <g id="policyCdnA" class="policy-node" transform="translate(210 150)"><circle r="34"></circle><text y="0">CDN A</text><text class="policy-node-note" y="17">timeout</text></g>
+          <g id="policyCdnB" class="policy-node" transform="translate(330 150)"><circle r="34"></circle><text y="0">CDN B</text><text class="policy-node-note" y="17">429</text></g>
+          <g id="policyCdnC" class="policy-node" transform="translate(450 150)"><circle r="34"></circle><text y="0">CDN C</text><text class="policy-node-note" y="17">500</text></g>
+          <g id="policyPeer" class="policy-node" transform="translate(570 150)"><circle r="34"></circle><text y="0">Peer</text><text class="policy-node-note" y="17">verified</text></g>
+          <g id="policyDelivered" class="policy-node" transform="translate(690 150)"><circle r="34"></circle><text y="5">Done</text></g>
+          <g id="policyAgent" class="policy-agent-node" transform="translate(380 58)"><rect x="-82" y="-29" width="164" height="58" rx="18"></rect><text y="-4">Agent assist</text><text class="policy-node-note" y="15">observe and recommend</text></g>
+          <g id="policySuggestion" class="policy-suggestion-node" transform="translate(380 238)"><rect x="-170" y="-28" width="340" height="56" rx="18"></rect><text y="-4">Suggested route policy</text><text class="policy-node-note" y="15">cool down CDN A, keep peer enabled</text></g>
         </svg>
 
         <div id="policyDemoText" class="policy-demo-text">Press play to show the agent assisted policy recommendation as a visual route simulation.</div>
@@ -177,10 +147,7 @@
           <div class="mesh-link link-f"></div>
           <div class="mesh-link link-g"></div>
           <div class="mesh-link link-h"></div>
-          <div class="mesh-center">
-            <span>Flareless</span>
-            <strong>Peer mesh</strong>
-          </div>
+          <div class="mesh-center"><span>Flareless</span><strong>Peer mesh</strong></div>
           <div class="orbit-node orbit-a"><span>Phone</span><strong>User A</strong></div>
           <div class="orbit-node orbit-b"><span>Laptop</span><strong>User B</strong></div>
           <div class="orbit-node orbit-c"><span>Tablet</span><strong>User C</strong></div>
@@ -193,26 +160,15 @@
       </div>
 
       <div class="peer-metrics">
-        <article>
-          <span>01</span>
-          <strong>More participants</strong>
-          <p>Each opted in user adds another possible path for approved public chunks.</p>
-        </article>
-        <article>
-          <span>02</span>
-          <strong>More recovery paths</strong>
-          <p>If a CDN fails, traffic can try another CDN, then peer assisted delivery.</p>
-        </article>
-        <article>
-          <span>03</span>
-          <strong>Future micro CDN mode</strong>
-          <p>Some peers may later opt into a stronger micro CDN mode, where stable devices cache more approved public content and help carry heavier traffic when demand grows.</p>
-        </article>
+        <article><span>01</span><strong>More participants</strong><p>Each opted in user adds another possible path for approved public chunks.</p></article>
+        <article><span>02</span><strong>More recovery paths</strong><p>If a CDN fails, traffic can try another CDN, then peer assisted delivery.</p></article>
+        <article><span>03</span><strong>Future micro CDN mode</strong><p>Some peers may later opt into a stronger micro CDN mode, where stable devices cache more approved public content and help carry heavier traffic when demand grows.</p></article>
       </div>
     </section>
   </main>
 
   <script src="./presence.js" type="module"></script>
   <script src="./app.js" type="module"></script>
+  <script src="./agent-policy.js" type="module"></script>
 </body>
 </html>
