@@ -1,215 +1,42 @@
 const scenarios = {
-  normal: {
-    label: "Delivered",
+  normal: scenario("Delivered", "success", "The primary CDN answers successfully, so Flareless does not spend time trying backup routes.", [["cdn-a", "PROVIDER_SUCCESS"]], "PRIMARY_PROVIDER_SUCCESS"),
+  timeout: scenario("Delivered after timeout failover", "success", "The first CDN misses its timeout deadline. Flareless records the timeout for this route and chunk, then immediately tries the next provider.", [["cdn-a", "PROVIDER_TIMEOUT", "Deadline exceeded after 1200 ms"], ["cdn-b", "PROVIDER_SUCCESS"]], "PROVIDER_TIMEOUT_FAILOVER"),
+  http403: scenario("Delivered after HTTP failover", "success", "The first CDN responds with a failure status. Flareless treats that status as a bad route result and tries the next CDN.", [["cdn-a", "PROVIDER_HTTP_403", "Provider rejected the request"], ["cdn-b", "PROVIDER_SUCCESS"]], "PROVIDER_STATUS_FAILOVER"),
+  allCdnFailPeerSuccess: scenario("Delivered from peer layer", "success", "Every CDN route fails, so Flareless moves to the peer assisted layer. The peer layer returns a hash verified public chunk.", [["cdn-a", "PROVIDER_TIMEOUT"], ["cdn-b", "PROVIDER_HTTP_500"], ["cdn-c", "PROVIDER_HTTP_429"], ["peer-assisted-edge", "PEER_SUCCESS", "Hash verified chunk returned"]], "ALL_CDNS_FAILED_PEER_SUCCESS"),
+  agentAssistedControl: {
+    label: "Agent suggestion ready",
     statusClass: "success",
-    explanation: "The primary CDN answers successfully, so Flareless does not spend time trying backup routes. This is the clean path where the first healthy provider wins and the response headers explain that no failover was needed.",
+    explanation: "The fast route layer still makes the delivery decision. The agent assist layer watches the result, explains why the route was slow, and recommends a bounded temporary policy change.",
     attempts: [
-      { provider: "cdn-a", result: "PROVIDER_SUCCESS" }
+      attempt("cdn-a", "PROVIDER_TIMEOUT", "Primary CDN missed the 800 ms target for this chunk."),
+      attempt("cdn-b", "PROVIDER_HTTP_429", "Backup CDN is rate limiting this route."),
+      attempt("cdn-c", "PROVIDER_HTTP_500", "Third CDN returned a server failure."),
+      attempt("peer-assisted-edge", "PEER_SUCCESS", "Peer assisted layer returned a hash verified public chunk."),
+      attempt("agent-assist", "POLICY_RECOMMENDATION_READY", "Recommend temporary CDN A cooldown, peer first retry, and 1400 ms timeout profile for this route class.")
     ],
-    headers: {
-      "x-flareless-provider": "cdn-a",
-      "x-flareless-route-id": "demo-normal-route",
-      "x-flareless-route-key": "route:/video/show-name/episode-001/v17/720p",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "PRIMARY_PROVIDER_SUCCESS",
-      "x-flareless-attempts": "cdn-a:PROVIDER_SUCCESS"
+    headers: headersFor("peer-assisted-edge", "demo-agent-assisted-route", "video-public-peer-first", "AGENT_ASSISTED_POLICY_RECOMMENDATION", "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_429,cdn-c:PROVIDER_HTTP_500,peer-assisted-edge:PEER_SUCCESS,agent-assist:POLICY_RECOMMENDATION_READY", { "x-flareless-agent-mode": "observe-and-recommend", "x-flareless-agent-recommendation": "temporary-route-policy-update" }),
+    agent: {
+      mode: "Observe and recommend",
+      summary: "Agent assist reviewed the failed CDN chain and found that the content was still recovered through the peer layer. It does not replace the router. It explains the failure and proposes a limited policy change that a developer can review or apply in simulation.",
+      steps: [
+        "Observed CDN A timeout on the current video route and chunk class.",
+        "Observed CDN B rate limiting and CDN C server failure.",
+        "Confirmed peer assisted delivery succeeded with hash verification.",
+        "Recommended a temporary route scoped cooldown instead of a global provider ban."
+      ],
+      recommendation: "Suggested policy: lower CDN A priority for this route for 10 minutes, keep peer assisted delivery enabled for public video chunks, and use a 1400 ms timeout profile for this chunk class before retrying the simulation."
     }
   },
-  timeout: {
-    label: "Delivered after timeout failover",
-    statusClass: "success",
-    explanation: "The first CDN does not answer before its timeout deadline. Flareless records that timeout against this route and chunk, then immediately tries the next provider. The second CDN succeeds, so this route recovers without forcing unrelated routes away from CDN A.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_TIMEOUT", detail: "Deadline exceeded after 1200 ms" },
-      { provider: "cdn-b", result: "PROVIDER_SUCCESS" }
-    ],
-    headers: {
-      "x-flareless-provider": "cdn-b",
-      "x-flareless-route-id": "demo-timeout-route",
-      "x-flareless-route-key": "route:/video/show-name/episode-001/v17/720p",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "PROVIDER_TIMEOUT_FAILOVER",
-      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS"
-    }
-  },
-  http403: {
-    label: "Delivered after HTTP failover",
-    statusClass: "success",
-    explanation: "The first CDN responds, but it responds with a failure status instead of the content. Flareless treats that status as a bad route and tries the next CDN. The second CDN succeeds, which proves the system can route around provider blocks, bad cache states, rate limits, and server errors.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_HTTP_403", detail: "Provider rejected the request" },
-      { provider: "cdn-b", result: "PROVIDER_SUCCESS" }
-    ],
-    headers: {
-      "x-flareless-provider": "cdn-b",
-      "x-flareless-route-id": "demo-http-route",
-      "x-flareless-route-key": "route:/video/show-name/episode-001/v17/720p",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "PROVIDER_STATUS_FAILOVER",
-      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_403,cdn-b:PROVIDER_SUCCESS"
-    }
-  },
-  allCdnFailPeerSuccess: {
-    label: "Delivered from peer layer",
-    statusClass: "success",
-    explanation: "Every CDN route fails, so Flareless moves to the peer assisted layer. The peer layer finds the requested public chunk and verifies it by hash before serving it. This shows how approved public content could still be reachable when the normal CDN paths are down.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
-      { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
-      { provider: "cdn-c", result: "PROVIDER_HTTP_429" },
-      { provider: "peer-assisted-edge", result: "PEER_SUCCESS", detail: "Hash verified chunk returned" }
-    ],
-    headers: {
-      "x-flareless-provider": "peer-assisted-edge",
-      "x-flareless-route-id": "demo-peer-route",
-      "x-flareless-route-key": "route:/video/show-name/episode-001/v17/720p",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "ALL_CDNS_FAILED_PEER_SUCCESS",
-      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_500,cdn-c:PROVIDER_HTTP_429,peer-assisted-edge:PEER_SUCCESS"
-    }
-  },
-  peerFailOriginBlocked: {
-    label: "Blocked before origin",
-    statusClass: "blocked",
-    explanation: "The CDNs fail and the peer layer does not have the file. Flareless then checks the route policy before touching origin storage. In this test, origin fallback is not allowed, so the request stops there. This protects the origin from surprise traffic spikes and keeps expensive emergency fallback under explicit control.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
-      { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
-      { provider: "peer-assisted-edge", result: "PEER_MISS" },
-      { provider: "origin", result: "ORIGIN_FALLBACK_NOT_ALLOWED", detail: "Route policy blocks origin fallback" }
-    ],
-    headers: {
-      "x-flareless-provider": "none",
-      "x-flareless-route-id": "demo-origin-blocked-route",
-      "x-flareless-route-key": "route:/video/show-name/episode-001/v17/720p",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "ORIGIN_FALLBACK_NOT_ALLOWED",
-      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_500,peer-assisted-edge:PEER_MISS,origin:ORIGIN_FALLBACK_NOT_ALLOWED"
-    }
-  },
-  peerFailOriginAllowed: {
-    label: "Delivered from origin fallback",
-    statusClass: "success",
-    explanation: "The CDNs fail and the peer layer misses, but this route allows origin fallback. Flareless sends the request to origin only after the cheaper and more resilient paths have failed. This keeps the site available while still making origin access a controlled last resort.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
-      { provider: "cdn-b", result: "PROVIDER_HTTP_500" },
-      { provider: "peer-assisted-edge", result: "PEER_MISS" },
-      { provider: "origin", result: "ORIGIN_SUCCESS", detail: "Route policy allows origin fallback" }
-    ],
-    headers: {
-      "x-flareless-provider": "origin",
-      "x-flareless-route-id": "demo-origin-allowed-route",
-      "x-flareless-route-key": "route:/origin-allowed",
-      "x-flareless-policy-id": "origin-fallback-allowed",
-      "x-flareless-reason": "ORIGIN_FALLBACK_SUCCESS",
-      "x-flareless-attempts": "cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_HTTP_500,peer-assisted-edge:PEER_MISS,origin:ORIGIN_SUCCESS"
-    }
-  },
-  routeScopedHealth: {
-    label: "Route isolation verified",
-    statusClass: "success",
-    explanation: "CDN A fails for one video route, the next request on that same route starts on CDN B, and an unrelated asset route still starts on CDN A. This shows Flareless is not one shared failover switch where a single failure poisons every path.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_BLOCKED_451", detail: "Failure recorded only for route:/video/show-a/v1." },
-      { provider: "cdn-b", result: "PROVIDER_SUCCESS", detail: "Same route moves to the next healthy provider." },
-      { provider: "cdn-a", result: "PROVIDER_SUCCESS", detail: "Unrelated route:/assets still starts on the primary provider." }
-    ],
-    headers: {
-      "x-flareless-provider": "cdn-a",
-      "x-flareless-route-id": "demo-route-scoped-health",
-      "x-flareless-route-key": "route:/assets",
-      "x-flareless-policy-id": "default-public-static",
-      "x-flareless-reason": "ROUTE_SCOPED_HEALTH_ISOLATION",
-      "x-flareless-attempts": "route:/video/show-a/v1:cdn-a:PROVIDER_BLOCKED_451,route:/video/show-a/v1:cdn-b:PROVIDER_SUCCESS,route:/assets:cdn-a:PROVIDER_SUCCESS"
-    }
-  },
-  chunkScopedHealth: {
-    label: "Chunk isolation verified",
-    statusClass: "success",
-    explanation: "CDN A fails for one exact video chunk, so that chunk can move to CDN B without forcing the sibling chunk away from CDN A. This proves the health model can isolate failures at the content chunk level instead of treating the whole route as broken.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_BLOCKED_451", detail: "Failure recorded for chunk:/video/show-a/v1/chunk-0001.m4s." },
-      { provider: "cdn-b", result: "PROVIDER_SUCCESS", detail: "The failed chunk is routed to the backup provider." },
-      { provider: "cdn-a", result: "PROVIDER_SUCCESS", detail: "Sibling chunk:/video/show-a/v1/chunk-0002.m4s still starts on the primary provider." }
-    ],
-    headers: {
-      "x-flareless-provider": "cdn-a",
-      "x-flareless-route-id": "demo-chunk-scoped-health",
-      "x-flareless-route-key": "route:/video/show-a/v1",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "CHUNK_SCOPED_HEALTH_ISOLATION",
-      "x-flareless-attempts": "chunk:/video/show-a/v1/chunk-0001.m4s:cdn-a:PROVIDER_BLOCKED_451,chunk:/video/show-a/v1/chunk-0001.m4s:cdn-b:PROVIDER_SUCCESS,chunk:/video/show-a/v1/chunk-0002.m4s:cdn-a:PROVIDER_SUCCESS"
-    }
-  },
-  videoPolicyPeerFallback: {
-    label: "Peer fallback allowed",
-    statusClass: "success",
-    explanation: "The video route policy allows peer fallback and blocks origin fallback. When all CDN providers fail, this route moves to the peer assisted layer instead of waking up origin storage.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_HTTP_503" },
-      { provider: "cdn-b", result: "PROVIDER_HTTP_503" },
-      { provider: "cdn-c", result: "PROVIDER_HTTP_503" },
-      { provider: "peer-assisted-edge", result: "PEER_FALLBACK_ALLOWED", detail: "Policy video-public-peer-first allows peer fallback." }
-    ],
-    headers: {
-      "x-flareless-route": "peer-fallback",
-      "x-flareless-provider": "peer-assisted-edge",
-      "x-flareless-route-id": "demo-video-policy-peer",
-      "x-flareless-route-key": "route:/video/policy-test/v1",
-      "x-flareless-policy-id": "video-public-peer-first",
-      "x-flareless-reason": "PEER_FALLBACK_ALLOWED",
-      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,cdn-c:PROVIDER_HTTP_503,peer-assisted-edge:PEER_FALLBACK_ALLOWED"
-    }
-  },
-  privatePolicyBlocked: {
-    label: "Fallback blocked by policy",
-    statusClass: "blocked",
-    explanation: "The private route policy blocks both peer fallback and origin fallback. If CDN providers fail, the request stops with a policy blocked response instead of leaking private content into peers or surprising origin.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_HTTP_503" },
-      { provider: "cdn-b", result: "PROVIDER_HTTP_503" },
-      { provider: "route-policy", result: "FALLBACK_BLOCKED_BY_POLICY", detail: "Policy private-no-fallback blocks peer and origin fallback." }
-    ],
-    headers: {
-      "x-flareless-route": "fallback-blocked",
-      "x-flareless-provider": "none",
-      "x-flareless-route-id": "demo-private-policy-blocked",
-      "x-flareless-route-key": "route:/private",
-      "x-flareless-policy-id": "private-no-fallback",
-      "x-flareless-reason": "FALLBACK_BLOCKED_BY_POLICY",
-      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,route-policy:FALLBACK_BLOCKED_BY_POLICY"
-    }
-  },
-  originPolicyAllowed: {
-    label: "Origin fallback allowed",
-    statusClass: "success",
-    explanation: "The origin allowed route policy blocks peer fallback but allows origin fallback. This is for routes where origin is an acceptable last resort and peer delivery is not allowed.",
-    attempts: [
-      { provider: "cdn-a", result: "PROVIDER_HTTP_503" },
-      { provider: "cdn-b", result: "PROVIDER_HTTP_503" },
-      { provider: "peer-assisted-edge", result: "PEER_FALLBACK_NOT_ALLOWED", detail: "Policy origin-fallback-allowed skips peer fallback." },
-      { provider: "origin", result: "ORIGIN_SUCCESS", detail: "Policy origin-fallback-allowed allows origin fallback." }
-    ],
-    headers: {
-      "x-flareless-route": "origin-fallback",
-      "x-flareless-provider": "origin",
-      "x-flareless-route-id": "demo-origin-policy-allowed",
-      "x-flareless-route-key": "route:/origin-allowed",
-      "x-flareless-policy-id": "origin-fallback-allowed",
-      "x-flareless-reason": "ORIGIN_FALLBACK_SUCCESS",
-      "x-flareless-attempts": "cdn-a:PROVIDER_HTTP_503,cdn-b:PROVIDER_HTTP_503,peer-assisted-edge:PEER_FALLBACK_NOT_ALLOWED,origin:ORIGIN_SUCCESS"
-    }
-  }
+  peerFailOriginBlocked: scenario("Blocked before origin", "blocked", "The CDNs fail and the peer layer does not have the file. The route policy blocks origin fallback, so the request stops before origin storage.", [["cdn-a", "PROVIDER_TIMEOUT"], ["cdn-b", "PROVIDER_HTTP_500"], ["peer-assisted-edge", "PEER_MISS"], ["origin", "ORIGIN_FALLBACK_NOT_ALLOWED", "Route policy blocks origin fallback"]], "ORIGIN_FALLBACK_NOT_ALLOWED", "none"),
+  peerFailOriginAllowed: scenario("Delivered from origin fallback", "success", "The CDNs fail and the peer layer misses, but this route allows origin fallback as a controlled last resort.", [["cdn-a", "PROVIDER_TIMEOUT"], ["cdn-b", "PROVIDER_HTTP_500"], ["peer-assisted-edge", "PEER_MISS"], ["origin", "ORIGIN_SUCCESS", "Route policy allows origin fallback"]], "ORIGIN_FALLBACK_SUCCESS", "origin", "origin-fallback-allowed"),
+  routeScopedHealth: scenario("Route isolation verified", "success", "A CDN failure on one route does not poison unrelated routes. Health stays scoped to the affected route.", [["cdn-a", "PROVIDER_BLOCKED_451", "Failure recorded only for route:/video/show-a/v1."], ["cdn-b", "PROVIDER_SUCCESS", "Same route moves to the next healthy provider."], ["cdn-a", "PROVIDER_SUCCESS", "Unrelated route:/assets still starts on the primary provider."]], "ROUTE_SCOPED_HEALTH_ISOLATION", "cdn-a", "default-public-static"),
+  chunkScopedHealth: scenario("Chunk isolation verified", "success", "A CDN failure on one exact video chunk can move that chunk to CDN B without forcing the sibling chunk away from CDN A.", [["cdn-a", "PROVIDER_BLOCKED_451", "Failure recorded for chunk:/video/show-a/v1/chunk-0001.m4s."], ["cdn-b", "PROVIDER_SUCCESS", "The failed chunk is routed to the backup provider."], ["cdn-a", "PROVIDER_SUCCESS", "Sibling chunk still starts on the primary provider."]], "CHUNK_SCOPED_HEALTH_ISOLATION"),
+  videoPolicyPeerFallback: scenario("Peer fallback allowed", "success", "The video route policy allows peer fallback and blocks origin fallback. When all CDN providers fail, this route moves to the peer assisted layer.", [["cdn-a", "PROVIDER_HTTP_503"], ["cdn-b", "PROVIDER_HTTP_503"], ["cdn-c", "PROVIDER_HTTP_503"], ["peer-assisted-edge", "PEER_FALLBACK_ALLOWED", "Policy video-public-peer-first allows peer fallback."]], "PEER_FALLBACK_ALLOWED", "peer-assisted-edge"),
+  privatePolicyBlocked: scenario("Fallback blocked by policy", "blocked", "The private route policy blocks both peer fallback and origin fallback. If CDN providers fail, the request stops with a policy blocked response.", [["cdn-a", "PROVIDER_HTTP_503"], ["cdn-b", "PROVIDER_HTTP_503"], ["route-policy", "FALLBACK_BLOCKED_BY_POLICY", "Policy private-no-fallback blocks peer and origin fallback."]], "FALLBACK_BLOCKED_BY_POLICY", "none", "private-no-fallback"),
+  originPolicyAllowed: scenario("Origin fallback allowed", "success", "The origin allowed route policy blocks peer fallback but allows origin fallback. This is for routes where origin is an acceptable last resort.", [["cdn-a", "PROVIDER_HTTP_503"], ["cdn-b", "PROVIDER_HTTP_503"], ["peer-assisted-edge", "PEER_FALLBACK_NOT_ALLOWED", "Policy origin-fallback-allowed skips peer fallback."], ["origin", "ORIGIN_SUCCESS", "Policy origin-fallback-allowed allows origin fallback."]], "ORIGIN_FALLBACK_SUCCESS", "origin", "origin-fallback-allowed")
 };
 
-const peerScenarioKeys = new Set([
-  "allCdnFailPeerSuccess",
-  "peerFailOriginBlocked",
-  "peerFailOriginAllowed",
-  "videoPolicyPeerFallback"
-]);
-
+const peerScenarioKeys = new Set(["allCdnFailPeerSuccess", "agentAssistedControl", "peerFailOriginBlocked", "peerFailOriginAllowed", "videoPolicyPeerFallback"]);
 const timeline = document.querySelector("#timeline");
 const headers = document.querySelector("#headers");
 const statusPill = document.querySelector("#statusPill");
@@ -220,46 +47,110 @@ const demoControlsToggle = document.querySelector("#demoControlsToggle");
 const demoControlsSymbol = document.querySelector("#demoControlsSymbol");
 const demoChoices = document.querySelector("#demoChoices");
 const peerSection = document.querySelector("#peerSection");
+const agentSection = document.querySelector("#agentSection");
+const agentMode = document.querySelector("#agentMode");
+const agentSummary = document.querySelector("#agentSummary");
+const agentSteps = document.querySelector("#agentSteps");
+const agentRecommendation = document.querySelector("#agentRecommendation");
+const applyAgentPolicy = document.querySelector("#applyAgentPolicy");
 const buttons = document.querySelectorAll("button[data-scenario]");
 let previousScrollY = window.pageYOffset;
 let upwardScrollTotal = 0;
+let activeScenarioKey = "timeout";
+
+function attempt(provider, result, detail) {
+  return { provider, result, detail };
+}
+
+function scenario(label, statusClass, explanation, rows, reason, provider = "cdn-b", policy = "video-public-peer-first") {
+  const attempts = rows.map((row) => attempt(row[0], row[1], row[2]));
+  return {
+    label,
+    statusClass,
+    explanation,
+    attempts,
+    headers: headersFor(provider, `demo-${reason.toLowerCase().replaceAll("_", "-")}`, policy, reason, rows.map((row) => `${row[0]}:${row[1]}`).join(","))
+  };
+}
+
+function headersFor(provider, routeId, policy, reason, attempts, extra = {}) {
+  return {
+    "x-flareless-provider": provider,
+    "x-flareless-route-id": routeId,
+    "x-flareless-route-key": "route:/video/show-name/episode-001/v17/720p",
+    "x-flareless-policy-id": policy,
+    "x-flareless-reason": reason,
+    "x-flareless-attempts": attempts,
+    ...extra
+  };
+}
 
 function renderScenario(scenarioKey) {
-  const scenario = scenarios[scenarioKey];
+  const scenarioData = scenarios[scenarioKey];
 
-  if (scenario === undefined) {
+  if (scenarioData === undefined) {
     return;
   }
 
+  activeScenarioKey = scenarioKey;
   timeline.replaceChildren();
 
-  for (const attempt of scenario.attempts) {
-    const item = document.createElement("li");
-    item.className = resultClass(attempt.result);
-
-    const provider = document.createElement("strong");
-    provider.textContent = attempt.provider;
-
-    const result = document.createElement("span");
-    result.textContent = attempt.result;
-
-    item.append(provider, result);
-
-    if (attempt.detail) {
-      const detail = document.createElement("p");
-      detail.textContent = attempt.detail;
-      item.append(detail);
-    }
-
-    timeline.append(item);
+  for (const item of scenarioData.attempts) {
+    timeline.append(createTimelineItem(item.provider, item.result, item.detail));
   }
 
-  statusPill.textContent = scenario.label;
-  statusPill.className = `status-pill ${scenario.statusClass}`;
-  headers.textContent = formatHeaders(scenario.headers);
-  scenarioExplanation.textContent = scenario.explanation;
+  statusPill.textContent = scenarioData.label;
+  statusPill.className = `status-pill ${scenarioData.statusClass}`;
+  headers.textContent = formatHeaders(scenarioData.headers);
+  scenarioExplanation.textContent = scenarioData.explanation;
   setPeerSectionVisible(peerScenarioKeys.has(scenarioKey));
+  renderAgentSection(scenarioData.agent);
   setActiveButton(scenarioKey);
+}
+
+function createTimelineItem(providerText, resultText, detailText) {
+  const item = document.createElement("li");
+  item.className = resultClass(resultText);
+
+  const provider = document.createElement("strong");
+  provider.textContent = providerText;
+
+  const result = document.createElement("span");
+  result.textContent = resultText;
+
+  item.append(provider, result);
+
+  if (detailText) {
+    const detail = document.createElement("p");
+    detail.textContent = detailText;
+    item.append(detail);
+  }
+
+  return item;
+}
+
+function renderAgentSection(agent) {
+  const hasAgent = agent !== undefined;
+  agentSection.hidden = !hasAgent;
+  agentSection.classList.toggle("is-hidden", !hasAgent);
+
+  if (!hasAgent) {
+    return;
+  }
+
+  agentMode.textContent = agent.mode;
+  agentSummary.textContent = agent.summary;
+  agentRecommendation.textContent = agent.recommendation;
+  applyAgentPolicy.hidden = false;
+  applyAgentPolicy.textContent = "Apply suggested policy in simulation";
+  applyAgentPolicy.disabled = false;
+  agentSteps.replaceChildren();
+
+  for (const step of agent.steps) {
+    const item = document.createElement("li");
+    item.textContent = step;
+    agentSteps.append(item);
+  }
 }
 
 function setPeerSectionVisible(isVisible) {
@@ -295,7 +186,7 @@ function scrollToRoutingResult() {
 }
 
 function resultClass(result) {
-  if (result.includes("SUCCESS") || result.includes("ALLOWED")) {
+  if (result.includes("SUCCESS") || result.includes("ALLOWED") || result.includes("RECOMMENDATION_READY")) {
     return "success-line";
   }
 
@@ -307,20 +198,29 @@ function resultClass(result) {
 }
 
 function formatHeaders(headerMap) {
-  return Object.entries(headerMap)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join("\n");
+  return Object.entries(headerMap).map(([key, value]) => `${key}: ${value}`).join("\n");
 }
 
 for (const button of buttons) {
   button.setAttribute("aria-pressed", "false");
   button.addEventListener("click", () => {
-    const scenarioKey = button.dataset.scenario;
-    renderScenario(scenarioKey);
+    renderScenario(button.dataset.scenario);
     setControlsOpen(false);
     scrollToRoutingResult();
   });
 }
+
+applyAgentPolicy.addEventListener("click", () => {
+  if (activeScenarioKey !== "agentAssistedControl") {
+    return;
+  }
+
+  timeline.append(createTimelineItem("route-policy", "SIMULATED_POLICY_APPLIED", "Simulation applied a route scoped cooldown and peer first retry for the next request. No live production policy was changed."));
+  agentMode.textContent = "Simulated apply complete";
+  applyAgentPolicy.textContent = "Suggested policy applied in simulation";
+  applyAgentPolicy.disabled = true;
+  headers.textContent = `${headers.textContent}\nx-flareless-agent-simulated-apply: temporary-route-policy-update`;
+});
 
 demoControlsToggle.addEventListener("click", () => {
   setControlsOpen(!demoControls.classList.contains("is-open"));
