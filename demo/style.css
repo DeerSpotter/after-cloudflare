@@ -180,7 +180,8 @@ button:active {
   outline-offset: 0.25rem;
 }
 
-.result-header {
+.result-header,
+.agent-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -208,6 +209,11 @@ button:active {
 .status-pill.blocked {
   background: rgba(255, 98, 98, 0.16);
   color: #ffb4b4;
+}
+
+.status-pill.agent {
+  background: rgba(158, 178, 255, 0.16);
+  color: #dbe4ff;
 }
 
 .timeline {
@@ -269,6 +275,51 @@ pre {
   margin-bottom: 0;
   color: #c6cfdd;
   line-height: 1.55;
+}
+
+.agent-section {
+  border-color: rgba(102, 240, 194, 0.26);
+  background:
+    radial-gradient(circle at top right, rgba(102, 240, 194, 0.1), transparent 16rem),
+    rgba(14, 20, 35, 0.88);
+}
+
+.agent-section p {
+  color: #c6cfdd;
+  line-height: 1.55;
+}
+
+.agent-steps {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.85rem 0;
+  padding-left: 1.35rem;
+  color: #dbe4ff;
+  line-height: 1.45;
+}
+
+.agent-steps li::marker {
+  color: #66f0c2;
+  font-weight: 900;
+}
+
+.agent-recommendation {
+  padding: 0.85rem;
+  border: 1px solid rgba(102, 240, 194, 0.24);
+  border-radius: 0.85rem;
+  background: rgba(102, 240, 194, 0.075);
+  color: #dbe4ff;
+  line-height: 1.5;
+}
+
+.agent-apply {
+  margin-top: 0.85rem;
+  background: linear-gradient(180deg, #66f0c2 0%, #9eb2ff 100%);
+}
+
+.agent-apply:disabled {
+  cursor: default;
+  opacity: 0.72;
 }
 
 .is-hidden {
