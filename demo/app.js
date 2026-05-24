@@ -55,6 +55,7 @@ const agentRecommendation = document.querySelector("#agentRecommendation");
 const buttons = document.querySelectorAll("button[data-scenario]");
 let previousScrollY = window.pageYOffset;
 let upwardScrollTotal = 0;
+let controlsAutoOpenSuppressedUntil = 0;
 let activeScenarioKey = "timeout";
 
 function attempt(provider, result, detail) {
@@ -163,6 +164,16 @@ function setControlsOpen(isOpen) {
   demoChoices.hidden = !isOpen;
 }
 
+function resetScrollAutoOpenTracking() {
+  previousScrollY = window.pageYOffset;
+  upwardScrollTotal = 0;
+}
+
+function suppressControlsAutoOpen(durationMs = 1200) {
+  controlsAutoOpenSuppressedUntil = Date.now() + durationMs;
+  resetScrollAutoOpenTracking();
+}
+
 function setActiveButton(scenarioKey) {
   for (const button of buttons) {
     const isActive = button.dataset.scenario === scenarioKey;
@@ -178,6 +189,8 @@ function scrollToRoutingResult() {
   setTimeout(() => {
     const resultTop = routingResult.getBoundingClientRect().top + window.pageYOffset;
     window.scrollTo(0, Math.max(resultTop - 16, 0));
+    setControlsOpen(false);
+    resetScrollAutoOpenTracking();
   }, 0);
 }
 
@@ -201,6 +214,7 @@ for (const button of buttons) {
   button.setAttribute("aria-pressed", "false");
   button.addEventListener("click", () => {
     renderScenario(button.dataset.scenario);
+    suppressControlsAutoOpen();
     setControlsOpen(false);
     scrollToRoutingResult();
   });
@@ -212,6 +226,13 @@ demoControlsToggle.addEventListener("click", () => {
 
 window.addEventListener("scroll", () => {
   const currentScrollY = window.pageYOffset;
+
+  if (Date.now() < controlsAutoOpenSuppressedUntil) {
+    previousScrollY = currentScrollY;
+    upwardScrollTotal = 0;
+    return;
+  }
+
   const delta = previousScrollY - currentScrollY;
 
   if (delta > 0) {
