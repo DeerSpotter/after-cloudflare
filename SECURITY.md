@@ -1,8 +1,16 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/trust%20model-zero%20trust%20peers-d73a49" alt="trust model zero trust peers">
-  <img src="https://img.shields.io/badge/content-hash%20verified-2ea44f" alt="content hash verified">
-  <img src="https://img.shields.io/badge/origin%20access-restricted-6f42c1" alt="origin access restricted">
-  <img src="https://img.shields.io/badge/secrets-never%20commit-f9c513" alt="secrets never commit">
+  <a href="#security-principles" title="Read the zero trust security principles">
+    <img src="https://img.shields.io/badge/trust%20model-zero%20trust%20peers-d73a49" alt="trust model zero trust peers">
+  </a>
+  <a href="#peer-delivery-rules" title="Read the peer content verification rules">
+    <img src="https://img.shields.io/badge/content-hash%20verified-2ea44f" alt="content hash verified">
+  </a>
+  <a href="./ARCHITECTURE.md#security-boundaries" title="Read the origin access security boundaries">
+    <img src="https://img.shields.io/badge/origin%20access-restricted-6f42c1" alt="origin access restricted">
+  </a>
+  <a href="#secrets-policy" title="Read the secrets policy">
+    <img src="https://img.shields.io/badge/secrets-never%20commit-f9c513" alt="secrets never commit">
+  </a>
 </p>
 
 # Security
