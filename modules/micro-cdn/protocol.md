@@ -1,4 +1,14 @@
+<p align="center">
+  <a href="#node-registration" title="Read node registration"><img src="https://img.shields.io/badge/node-registration-2ea44f" alt="node registration"></a><br>
+  <a href="#deadline-based-routing-response" title="Read deadline based routing"><img src="https://img.shields.io/badge/routing-deadline-6f42c1" alt="deadline routing"></a><br>
+  <a href="#public-content-path" title="Read public content path"><img src="https://img.shields.io/badge/path-public-f9c513" alt="public path"></a><br>
+  <a href="#initial-implementation-constraints" title="Read implementation constraints"><img src="https://img.shields.io/badge/v1-constrained-d73a49" alt="v1 constrained"></a>
+</p>
+
 # Micro CDN Protocol Draft
+
+> [!NOTE]
+> This protocol draft favors boring local development first. It is intentionally constrained so the module can be tested before adding distributed trust or production routing.
 
 ## Node registration
 
@@ -71,6 +81,9 @@ POST /nodes/report
   "maxAgeSeconds": 86400
 }
 ```
+
+> [!IMPORTANT]
+> The display path is human readable, but the content hash is the integrity source of truth.
 
 ## Public content path
 
@@ -147,6 +160,9 @@ The coordinator returns a routing plan, not just a single timeout target.
 
 The legacy `selectedNode` field remains for compatibility. New clients should prefer `candidates` and race the backup before the primary fully times out.
 
+> [!TIP]
+> Deadline based routing lets a client preserve one total request budget while still trying backup nodes before the primary path fully fails.
+
 ## Routing query options
 
 ```text
@@ -184,3 +200,6 @@ mode
 4. No peer to peer mesh routing in v1
 5. Coordinator remains centralized initially
 6. No encrypted overlay network in v1
+
+> [!WARNING]
+> The v1 coordinator is intentionally centralized. Do not describe it as a production distributed trust system until that work exists.
