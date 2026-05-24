@@ -1,3 +1,15 @@
+<p align="center">
+  <img src="./docs/assets/flareless-readme-banner.svg" alt="Flareless peer assisted delivery banner">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/status-prototype-orange" alt="status prototype">
+  <img src="https://img.shields.io/badge/CDN%20failure-detected-d73a49" alt="CDN failure detected">
+  <img src="https://img.shields.io/badge/peer%20assist-enabled-6f42c1" alt="peer assist enabled">
+  <img src="https://img.shields.io/badge/integrity-verified-2ea44f" alt="integrity verified">
+  <img src="https://img.shields.io/badge/origin%20fallback-policy%20controlled-f9c513" alt="origin fallback policy controlled">
+</p>
+
 # Flareless
 
 Flareless is for the engineers who built the edge, kept it alive, carried the pager, solved the incidents, and then got told they were expendable.
@@ -9,6 +21,12 @@ Not a rant. Not a boycott. Not a revenge repo.
 A build.
 
 An open source edge router and runtime for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
+
+> [!IMPORTANT]
+> Flareless does not treat peer delivery as blind fallback. Route policy, integrity checks, provider health, and failure scope decide what happens next.
+
+> [!NOTE]
+> The current public demo is static. It simulates CDN timeout behavior, HTTP status failover, peer assisted fallback, and policy controlled origin fallback without requiring a worker, backend, or paid hosting.
 
 ## Mobile Demo
 
@@ -34,20 +52,27 @@ Most websites depend on one edge provider for DNS, TLS, WAF, caching, routing, a
 
 Flareless separates those functions.
 
-```text
-User
-  |
-Smart Traffic Layer
-  |
-  |---- CDN A
-  |---- CDN B
-  |---- CDN C
-  |---- Peer Assisted Edge
-  |
-Origin Storage
+```mermaid
+flowchart LR
+    U[User] --> STL[Smart Traffic Layer]
+    STL --> A[CDN A]
+    STL --> B[CDN B]
+    STL --> C[CDN C]
+    STL --> P[Peer Assisted Edge]
+    A --> D[Verified Response]
+    B --> D
+    C --> D
+    P --> V[Hash and Manifest Verification]
+    V --> D
+    STL --> O{Origin fallback allowed?}
+    O -->|yes| OS[Origin Storage]
+    O -->|no| S[Stop safely]
 ```
 
 If one CDN fails, blocks traffic, rate limits the site, or becomes unreachable, traffic can route around it.
+
+> [!WARNING]
+> Origin fallback should remain policy controlled. A provider failure should not automatically bypass peer verification, route policy, or content ownership rules.
 
 ## Optional Micro CDN Module
 
@@ -214,12 +239,18 @@ Use versioned paths instead of overwriting live files.
 
 ## Failover Logic
 
-```text
-Try primary CDN
-If timeout, try secondary CDN
-If HTTP 403, 404, 429, or 5xx, try next CDN
-If all CDNs fail, try peer assisted layer
-If peer layer fails, fall back to origin only if allowed
+```mermaid
+flowchart TD
+    R[Request arrives] --> A[Try primary CDN]
+    A -->|success| OK[Return response with route headers]
+    A -->|timeout| B[Try next ranked CDN]
+    A -->|403, 404, 429, or 5xx| B
+    B -->|success| OK
+    B -->|all CDNs failed| P[Try peer assisted layer]
+    P -->|verified chunks| OK
+    P -->|peer failure| O{Origin fallback allowed?}
+    O -->|yes| OR[Fetch from origin]
+    O -->|no| SAFE[Fail closed safely]
 ```
 
 Provider fetches are timeout aware. Each provider can define `timeoutMs`; when a provider does not answer before its deadline, Flareless records the timeout, marks that provider as failed, and tries the next ranked provider.
@@ -275,6 +306,9 @@ Required controls:
 * Clear content ownership
 * Origin access restrictions
 * No private key sharing with peers
+
+> [!CAUTION]
+> Peer assisted delivery should only serve approved public content. It should not become an arbitrary proxy, exit node, or private traffic relay.
 
 ## License
 
