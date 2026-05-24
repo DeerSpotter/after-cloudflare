@@ -36,6 +36,7 @@ const scenarios = {
   originPolicyAllowed: scenario("Origin fallback allowed", "success", "The origin allowed route policy blocks peer fallback but allows origin fallback. This is for routes where origin is an acceptable last resort.", [["cdn-a", "PROVIDER_HTTP_503"], ["cdn-b", "PROVIDER_HTTP_503"], ["peer-assisted-edge", "PEER_FALLBACK_NOT_ALLOWED", "Policy origin-fallback-allowed skips peer fallback."], ["origin", "ORIGIN_SUCCESS", "Policy origin-fallback-allowed allows origin fallback."]], "ORIGIN_FALLBACK_SUCCESS", "origin", "origin-fallback-allowed")
 };
 
+const defaultScenarioKey = "agentAssistedControl";
 const peerScenarioKeys = new Set(["allCdnFailPeerSuccess", "agentAssistedControl", "peerFailOriginBlocked", "peerFailOriginAllowed", "videoPolicyPeerFallback"]);
 const timeline = document.querySelector("#timeline");
 const headers = document.querySelector("#headers");
@@ -56,7 +57,7 @@ const buttons = document.querySelectorAll("button[data-scenario]");
 let previousScrollY = window.pageYOffset;
 let upwardScrollTotal = 0;
 let controlsAutoOpenSuppressedUntil = 0;
-let activeScenarioKey = "timeout";
+let activeScenarioKey = defaultScenarioKey;
 
 function attempt(provider, result, detail) {
   return { provider, result, detail };
@@ -250,4 +251,4 @@ window.addEventListener("scroll", () => {
 }, { passive: true });
 
 setControlsOpen(true);
-renderScenario("timeout");
+renderScenario(defaultScenarioKey);
