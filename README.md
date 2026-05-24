@@ -3,11 +3,21 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/status-prototype-orange" alt="status prototype">
-  <img src="https://img.shields.io/badge/CDN%20failure-detected-d73a49" alt="CDN failure detected">
-  <img src="https://img.shields.io/badge/peer%20assist-enabled-6f42c1" alt="peer assist enabled">
-  <img src="https://img.shields.io/badge/integrity-verified-2ea44f" alt="integrity verified">
-  <img src="https://img.shields.io/badge/origin%20fallback-policy%20controlled-f9c513" alt="origin fallback policy controlled">
+  <a href="./ROADMAP.md" title="View the active prototype roadmap">
+    <img src="https://img.shields.io/badge/status-prototype-orange" alt="status prototype">
+  </a>
+  <a href="https://deerspotter.github.io/flareless/demo/" title="Open the live routing failure demo">
+    <img src="https://img.shields.io/badge/CDN%20failure-detected-d73a49" alt="CDN failure detected">
+  </a>
+  <a href="./ARCHITECTURE.md#peer-assisted-fallback" title="Read the peer assisted fallback architecture">
+    <img src="https://img.shields.io/badge/peer%20assist-enabled-6f42c1" alt="peer assist enabled">
+  </a>
+  <a href="./SECURITY.md#peer-delivery-rules" title="Read the peer integrity verification rules">
+    <img src="https://img.shields.io/badge/integrity-verified-2ea44f" alt="integrity verified">
+  </a>
+  <a href="./ARCHITECTURE.md#avoiding-a-new-single-point-of-failure" title="Read the scoped route policy and origin fallback model">
+    <img src="https://img.shields.io/badge/origin%20fallback-policy%20controlled-f9c513" alt="origin fallback policy controlled">
+  </a>
 </p>
 
 # Flareless
