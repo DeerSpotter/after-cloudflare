@@ -1,16 +1,8 @@
 <p align="center">
-  <a href="#runtime-prototype" title="Read the runtime prototype track">
-    <img src="https://img.shields.io/badge/runtime-active%20prototype-2ea44f" alt="runtime active prototype">
-  </a>
-  <a href="#peer-assisted-delivery" title="Read the peer assisted delivery track">
-    <img src="https://img.shields.io/badge/peer%20delivery-open%20track-6f42c1" alt="peer delivery open track">
-  </a>
-  <a href="#manifest-and-content-integrity" title="Read the manifest and content integrity track">
-    <img src="https://img.shields.io/badge/manifests-integrity%20first-f9c513" alt="manifests integrity first">
-  </a>
-  <a href="#security-and-abuse-controls" title="Read the security and abuse controls track">
-    <img src="https://img.shields.io/badge/security-policy%20first-d73a49" alt="security policy first">
-  </a>
+  <a href="#runtime-prototype" title="Read the runtime prototype track"><img src="https://img.shields.io/badge/runtime-active-2ea44f" alt="runtime active"></a><br>
+  <a href="#peer-assisted-delivery" title="Read the peer assisted delivery track"><img src="https://img.shields.io/badge/peer-open-6f42c1" alt="peer open"></a><br>
+  <a href="#manifest-and-content-integrity" title="Read the manifest and content integrity track"><img src="https://img.shields.io/badge/manifest-integrity-f9c513" alt="manifest integrity"></a><br>
+  <a href="#security-and-abuse-controls" title="Read the security and abuse controls track"><img src="https://img.shields.io/badge/security-policy-d73a49" alt="security policy"></a>
 </p>
 
 # Roadmap
