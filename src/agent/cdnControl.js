@@ -1,3 +1,5 @@
+import { summarizeFailurePoints } from "./failurePointTracker.js";
+
 const PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT";
 const PROVIDER_FETCH_ERROR = "PROVIDER_FETCH_ERROR";
 const PROVIDER_SUCCESS = "PROVIDER_SUCCESS";
@@ -5,11 +7,13 @@ const PROVIDER_BLOCKED_PREFIX = "PROVIDER_BLOCKED_";
 
 export function createAgentCdnControlReport(input = {}) {
     const attempts = normalizeAttempts(input.attempts);
+    const failurePoints = normalizeFailurePoints(input.failurePoints);
     const routePolicy = normalizeRoutePolicy(input.routePolicy);
     const routeScope = normalizeRouteScope(input.routeScope);
     const summary = summarizeAttempts(attempts);
-    const notices = createAgentNotices(summary, routePolicy, routeScope);
-    const recommendation = createAgentRecommendation(summary, routePolicy, routeScope);
+    const failurePointSummary = summarizeFailurePoints(failurePoints);
+    const notices = createAgentNotices(summary, failurePointSummary, routePolicy, routeScope);
+    const recommendation = createAgentRecommendation(summary, failurePointSummary, routePolicy, routeScope);
 
     return {
         agent: "flareless-agent-cdn-control",
@@ -17,6 +21,8 @@ export function createAgentCdnControlReport(input = {}) {
         routeKey: routeScope.routeKey,
         policyId: routePolicy.id,
         summary,
+        failurePoints,
+        failurePointSummary,
         notices,
         recommendation,
         proposedPolicy: applyAgentRecommendationToPolicy(routePolicy, recommendation)
@@ -33,6 +39,8 @@ export function applyAgentRecommendationToPolicy(routePolicy = {}, recommendatio
         agentAction: recommendation.action || "OBSERVE_ONLY",
         agentReason: recommendation.reason || "No agent recommendation was produced.",
         cooldownProviderNames: Array.isArray(recommendation.cooldownProviderNames) ? recommendation.cooldownProviderNames : [],
+        failureStage: recommendation.failureStage || null,
+        failurePointCode: recommendation.failurePointCode || null,
         allowPeerFallback: recommendation.keepPeerFallback === true ? true : normalizedPolicy.allowPeerFallback,
         allowOriginFallback: recommendation.allowOriginFallback === true ? true : normalizedPolicy.allowOriginFallback
     };
@@ -48,6 +56,29 @@ function normalizeAttempts(attempts) {
         .map(attempt => ({
             provider: String(attempt.provider || "unknown-provider"),
             result: String(attempt.result || PROVIDER_FETCH_ERROR)
+        }));
+}
+
+function normalizeFailurePoints(failurePoints) {
+    if (Array.isArray(failurePoints) === false) {
+        return [];
+    }
+
+    return failurePoints
+        .filter(point => point && typeof point === "object")
+        .map((point, index) => ({
+            sequence: Number.isFinite(Number(point.sequence)) ? Number(point.sequence) : index + 1,
+            stage: String(point.stage || "UNKNOWN_STAGE"),
+            code: String(point.code || "UNKNOWN_FAILURE_POINT"),
+            provider: point.provider === null || point.provider === undefined ? null : String(point.provider),
+            routeKey: String(point.routeKey || "route:/"),
+            chunkKey: String(point.chunkKey || "chunk:/"),
+            policyId: String(point.policyId || "unknown-policy"),
+            fallbackAllowed: {
+                peer: point.fallbackAllowed?.peer === true,
+                origin: point.fallbackAllowed?.origin === true
+            },
+            detail: point.detail && typeof point.detail === "object" ? point.detail : {}
         }));
 }
 
@@ -94,7 +125,7 @@ function summarizeAttempts(attempts) {
     };
 }
 
-function createAgentNotices(summary, routePolicy, routeScope) {
+function createAgentNotices(summary, failurePointSummary, routePolicy, routeScope) {
     const notices = [];
 
     if (summary.attemptCount === 0) {
@@ -103,7 +134,16 @@ function createAgentNotices(summary, routePolicy, routeScope) {
             code: "NO_ROUTE_ATTEMPTS",
             message: "The agent did not receive provider attempts to analyze."
         });
-        return notices;
+    }
+
+    if (failurePointSummary.count > 0) {
+        notices.push({
+            severity: "error",
+            code: "FAILURE_POINT_CHAIN_DETECTED",
+            message: "The agent received a failure point chain for this route.",
+            firstFailurePoint: failurePointSummary.firstFailurePoint,
+            lastFailurePoint: failurePointSummary.lastFailurePoint
+        });
     }
 
     if (summary.timeoutProviders.length > 0) {
@@ -159,14 +199,18 @@ function createAgentNotices(summary, routePolicy, routeScope) {
     return notices;
 }
 
-function createAgentRecommendation(summary, routePolicy, routeScope) {
-    if (summary.attemptCount === 0) {
+function createAgentRecommendation(summary, failurePointSummary, routePolicy, routeScope) {
+    const lastFailurePoint = failurePointSummary.lastFailurePoint;
+
+    if (summary.attemptCount === 0 && failurePointSummary.count === 0) {
         return {
             id: "OBSERVE_ONLY_NO_ATTEMPTS",
             action: "OBSERVE_ONLY",
             confidence: "low",
-            reason: "No provider attempts were available for analysis.",
+            reason: "No provider attempts or failure points were available for analysis.",
             cooldownProviderNames: [],
+            failureStage: null,
+            failurePointCode: null,
             keepPeerFallback: routePolicy.allowPeerFallback,
             allowOriginFallback: routePolicy.allowOriginFallback,
             routeKey: routeScope.routeKey
@@ -177,9 +221,11 @@ function createAgentRecommendation(summary, routePolicy, routeScope) {
         return {
             id: "COOLDOWN_FAILED_PROVIDERS_KEEP_PEER",
             action: "COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK",
-            confidence: "medium",
+            confidence: failurePointSummary.count > 0 ? "high" : "medium",
             reason: "The agent saw provider failures and recommends cooling down failed providers while keeping peer fallback enabled for this route.",
             cooldownProviderNames: summary.failedProviders,
+            failureStage: lastFailurePoint?.stage || null,
+            failurePointCode: lastFailurePoint?.code || null,
             keepPeerFallback: true,
             allowOriginFallback: routePolicy.allowOriginFallback,
             routeKey: routeScope.routeKey
@@ -190,9 +236,11 @@ function createAgentRecommendation(summary, routePolicy, routeScope) {
         return {
             id: "COOLDOWN_FAILED_PROVIDERS_ALLOW_ORIGIN_LAST",
             action: "COOLDOWN_FAILED_PROVIDERS_ALLOW_ORIGIN_LAST_RESORT",
-            confidence: "medium",
+            confidence: failurePointSummary.count > 0 ? "high" : "medium",
             reason: "The agent saw provider failures and recommends cooling down failed providers while preserving origin as a controlled last resort.",
             cooldownProviderNames: summary.failedProviders,
+            failureStage: lastFailurePoint?.stage || null,
+            failurePointCode: lastFailurePoint?.code || null,
             keepPeerFallback: routePolicy.allowPeerFallback,
             allowOriginFallback: true,
             routeKey: routeScope.routeKey
@@ -203,11 +251,28 @@ function createAgentRecommendation(summary, routePolicy, routeScope) {
         return {
             id: "COOLDOWN_FAILED_PROVIDERS_FAIL_CLOSED",
             action: "COOLDOWN_FAILED_PROVIDERS_FAIL_CLOSED",
-            confidence: "medium",
+            confidence: failurePointSummary.count > 0 ? "high" : "medium",
             reason: "The agent saw provider failures, but this route policy blocks both peer and origin fallback. The route should fail closed safely.",
             cooldownProviderNames: summary.failedProviders,
+            failureStage: lastFailurePoint?.stage || null,
+            failurePointCode: lastFailurePoint?.code || null,
             keepPeerFallback: false,
             allowOriginFallback: false,
+            routeKey: routeScope.routeKey
+        };
+    }
+
+    if (failurePointSummary.count > 0) {
+        return {
+            id: "OBSERVE_FAILURE_POINTS_ONLY",
+            action: "OBSERVE_FAILURE_POINTS",
+            confidence: "medium",
+            reason: "The agent received failure points without failed provider attempts and recommends investigation before policy mutation.",
+            cooldownProviderNames: [],
+            failureStage: lastFailurePoint?.stage || null,
+            failurePointCode: lastFailurePoint?.code || null,
+            keepPeerFallback: routePolicy.allowPeerFallback,
+            allowOriginFallback: routePolicy.allowOriginFallback,
             routeKey: routeScope.routeKey
         };
     }
@@ -218,6 +283,8 @@ function createAgentRecommendation(summary, routePolicy, routeScope) {
         confidence: "high",
         reason: "The route succeeded without provider failures. No policy change is recommended.",
         cooldownProviderNames: [],
+        failureStage: null,
+        failurePointCode: null,
         keepPeerFallback: routePolicy.allowPeerFallback,
         allowOriginFallback: routePolicy.allowOriginFallback,
         routeKey: routeScope.routeKey
