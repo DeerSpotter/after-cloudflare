@@ -1,8 +1,17 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/contributions-build%20first-2ea44f" alt="contributions build first">
+  <img src="https://img.shields.io/badge/pull%20requests-small%20and%20focused-6f42c1" alt="pull requests small and focused">
+  <img src="https://img.shields.io/badge/provider%20neutral-required-f9c513" alt="provider neutral required">
+</p>
+
 # Contributing
 
 Flareless is built for people who want to turn hard experience into infrastructure.
 
 Bring the systems knowledge. Bring the operational scars. Turn them into code, tests, documents, and reviews.
+
+> [!NOTE]
+> The best contribution explains the failure mode, adds a focused change, and proves the behavior with a test.
 
 ## Working style
 
@@ -13,6 +22,15 @@ Bring the systems knowledge. Bring the operational scars. Turn them into code, t
 * Add tests for routing, health, manifest, peer, and security behavior.
 * Keep the project provider neutral.
 * Do not add secrets, private credentials, or vendor internal material.
+
+```mermaid
+flowchart LR
+    I[Issue or failure mode] --> C[Small change]
+    C --> T[Tests]
+    T --> D[Docs]
+    D --> P[Pull request]
+    P --> R[Review]
+```
 
 ## What belongs here
 
@@ -26,6 +44,9 @@ Good contributions include:
 * Local simulation and test tooling.
 * Clear architecture and protocol documentation.
 
+> [!TIP]
+> Useful work makes routing decisions more explainable, peer delivery safer, tests stronger, or the project easier for new builders to run.
+
 ## What does not belong here
 
 Do not submit:
@@ -36,6 +57,9 @@ Do not submit:
 * Abuse tooling.
 * Code that hides the real behavior from reviewers.
 * Vendor specific lock in presented as a neutral default.
+
+> [!WARNING]
+> Do not submit code or documentation that turns Flareless into an abuse platform, blind proxy, credential relay, or vendor locked system.
 
 ## First contribution path
 
@@ -84,6 +108,9 @@ Before opening a pull request, confirm:
 * New behavior is documented.
 * Security sensitive behavior is explained.
 * The change does not depend on a single provider.
+
+> [!IMPORTANT]
+> Provider neutrality is a project rule, not a preference. A provider adapter can be specific, but the default architecture should not depend on one vendor.
 
 ## Tone
 
