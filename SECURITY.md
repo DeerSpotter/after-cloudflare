@@ -1,6 +1,16 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/trust%20model-zero%20trust%20peers-d73a49" alt="trust model zero trust peers">
+  <img src="https://img.shields.io/badge/content-hash%20verified-2ea44f" alt="content hash verified">
+  <img src="https://img.shields.io/badge/origin%20access-restricted-6f42c1" alt="origin access restricted">
+  <img src="https://img.shields.io/badge/secrets-never%20commit-f9c513" alt="secrets never commit">
+</p>
+
 # Security
 
 Flareless is a routing and resilience project. It is not a bypass tool, abuse platform, or piracy system.
+
+> [!IMPORTANT]
+> Flareless should assume providers can fail, peers can lie, and fast responses are not trustworthy until content integrity is proven.
 
 ## Security principles
 
@@ -12,6 +22,15 @@ Flareless is a routing and resilience project. It is not a bypass tool, abuse pl
 * Never commit credentials.
 * Keep origin access restricted.
 * Make failure behavior visible and reviewable.
+
+```mermaid
+flowchart LR
+    P[Peer response] --> H[Hash check]
+    H -->|match| M[Manifest check]
+    H -->|fail| R[Reject and penalize]
+    M -->|valid| U[Use content]
+    M -->|invalid| R
+```
 
 ## Peer delivery rules
 
@@ -27,6 +46,9 @@ A valid peer path should include:
 
 A peer response should not be trusted because it is fast. Speed is only useful after integrity is proven.
 
+> [!WARNING]
+> Peer delivery must not become arbitrary proxying. Peers should only serve approved public content that can be verified independently.
+
 ## Provider routing rules
 
 Provider failover should be explainable. Route decisions should eventually include reason codes such as:
@@ -37,6 +59,17 @@ Provider failover should be explainable. Route decisions should eventually inclu
 * Provider exceeded failure budget.
 * Region bias selected alternate provider.
 * Peer fallback required.
+
+```mermaid
+flowchart TD
+    A[Provider selected] --> B{Response valid?}
+    B -->|yes| C[Return with route headers]
+    B -->|timeout| D[Record timeout reason]
+    B -->|blocked or failed| E[Record provider failure reason]
+    D --> F[Try next allowed route]
+    E --> F
+    F --> G[Explain final decision]
+```
 
 ## Secrets policy
 
@@ -50,6 +83,9 @@ Do not commit:
 * Private customer data.
 
 If a secret is committed, rotate it immediately and remove it from history where practical.
+
+> [!CAUTION]
+> A committed secret should be treated as exposed. Removing it from the visible file is not enough by itself.
 
 ## Abuse prevention
 
