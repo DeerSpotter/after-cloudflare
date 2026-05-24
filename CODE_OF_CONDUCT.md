@@ -1,13 +1,7 @@
 <p align="center">
-  <a href="#project-tone" title="Read the project tone guidance">
-    <img src="https://img.shields.io/badge/project%20tone-sharp%20but%20useful-6f42c1" alt="project tone sharp but useful">
-  </a>
-  <a href="#expected-behavior" title="Read the expected review behavior">
-    <img src="https://img.shields.io/badge/reviews-technical%20and%20actionable-2ea44f" alt="reviews technical and actionable">
-  </a>
-  <a href="#unacceptable-behavior" title="Read what behavior is not accepted">
-    <img src="https://img.shields.io/badge/personal%20attacks-not%20accepted-d73a49" alt="personal attacks not accepted">
-  </a>
+  <a href="#project-tone" title="Read the project tone guidance"><img src="https://img.shields.io/badge/tone-sharp%20useful-6f42c1" alt="sharp useful tone"></a><br>
+  <a href="#expected-behavior" title="Read the expected review behavior"><img src="https://img.shields.io/badge/reviews-actionable-2ea44f" alt="actionable reviews"></a><br>
+  <a href="#unacceptable-behavior" title="Read what behavior is not accepted"><img src="https://img.shields.io/badge/attacks-not%20accepted-d73a49" alt="attacks not accepted"></a>
 </p>
 
 # Code of Conduct
