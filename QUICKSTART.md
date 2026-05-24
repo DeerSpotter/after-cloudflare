@@ -1,6 +1,16 @@
+<p align="center">
+  <a href="#requirements" title="Read requirements"><img src="https://img.shields.io/badge/step-setup-2ea44f" alt="setup"></a><br>
+  <a href="#run-tests" title="Run local tests"><img src="https://img.shields.io/badge/checks-tests-6f42c1" alt="tests"></a><br>
+  <a href="#run-the-local-edge-runtime" title="Run local edge runtime"><img src="https://img.shields.io/badge/runtime-local-f9c513" alt="local runtime"></a><br>
+  <a href="#run-the-offline-simulator" title="Run offline simulator"><img src="https://img.shields.io/badge/simulator-offline-d73a49" alt="offline simulator"></a>
+</p>
+
 # Quickstart
 
 This guide gets a contributor from clone to local runtime checks.
+
+> [!TIP]
+> Start here when you only want to prove the project runs locally before reading the deeper architecture docs.
 
 ## Requirements
 
@@ -21,6 +31,9 @@ npm test
 go test ./...
 go build ./...
 ```
+
+> [!NOTE]
+> Passing tests should be the baseline before opening a pull request or changing routing behavior.
 
 ## Run the local edge runtime
 
@@ -83,6 +96,9 @@ npm run simulate -- --cdnABlocked=true
 npm run simulate -- --cdnABlocked=true --cdnBBlocked=true
 npm run simulate -- --peerFailureRate=0.10 --invalidPeerRate=0.01
 ```
+
+> [!IMPORTANT]
+> Simulator scenarios are the easiest way to show why route failover and peer fallback matter before WebRTC transport exists.
 
 ## Repo layout
 
