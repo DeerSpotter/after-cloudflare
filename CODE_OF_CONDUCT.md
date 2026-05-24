@@ -1,8 +1,17 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/project%20tone-sharp%20but%20useful-6f42c1" alt="project tone sharp but useful">
+  <img src="https://img.shields.io/badge/reviews-technical%20and%20actionable-2ea44f" alt="reviews technical and actionable">
+  <img src="https://img.shields.io/badge/personal%20attacks-not%20accepted-d73a49" alt="personal attacks not accepted">
+</p>
+
 # Code of Conduct
 
 Flareless exists to turn hard experience into useful infrastructure.
 
 This project can have edge, urgency, and strong opinions. It cannot become a place for personal attacks.
+
+> [!IMPORTANT]
+> The project can be direct. The project cannot become personal. Critique the system, the design, the code, or the failure mode.
 
 ## Expected behavior
 
@@ -12,6 +21,9 @@ This project can have edge, urgency, and strong opinions. It cannot become a pla
 * Keep disagreements specific and actionable.
 * Respect maintainers, reviewers, and new contributors.
 * Help new contributors find a useful first task.
+
+> [!TIP]
+> A strong review explains what failed, why it matters, and what would make the change acceptable.
 
 ## Unacceptable behavior
 
@@ -23,6 +35,9 @@ This project can have edge, urgency, and strong opinions. It cannot become a pla
 * Deliberately misleading reviewers.
 * Using the project to enable abuse.
 
+> [!WARNING]
+> Do not use Flareless issues, pull requests, discussions, or examples to post secrets, private customer material, exploit details, or personal information.
+
 ## Project tone
 
 Hard feelings about broken systems are understandable.
@@ -31,8 +46,21 @@ Personal attacks are not.
 
 Build, test, review, improve.
 
+```mermaid
+flowchart LR
+    A[Hard experience] --> B[Useful issue]
+    B --> C[Focused pull request]
+    C --> D[Review]
+    D --> E[Better infrastructure]
+    A -.-> X[Personal attack]
+    X --> Y[Removed or blocked]
+```
+
 ## Enforcement
 
 Maintainers may edit, hide, or remove comments and contributions that violate this code. Repeat problems can lead to blocked participation.
 
 The goal is not to make the project bland. The goal is to keep it useful.
+
+> [!NOTE]
+> Enforcement is about protecting the build. It is not about removing urgency, sharp technical criticism, or strong opinions.
