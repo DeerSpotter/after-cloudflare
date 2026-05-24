@@ -8,6 +8,7 @@ import { createHealthLayers, createRouteScope } from "./routing/routeScope.js";
 import { createPeerFallbackResponse } from "./peer/peerFallback.js";
 import { createFallbackBlockedResponse, createOriginFallbackResponse } from "./origin/originFallback.js";
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
+import { createAgentCdnControlReport } from "./agent/cdnControl.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
 import { DemoPresenceRoom } from "./demo/presenceObject.js";
 
@@ -49,9 +50,54 @@ export default {
             return Response.json(createMgpManifest(assetPath, PROVIDERS), { headers: secureHeaders() });
         }
 
+        if (url.pathname === "/agent/cdn-control") {
+            return createAgentCdnControlResponse(request);
+        }
+
         return await routeRequest(request);
     }
 };
+
+async function createAgentCdnControlResponse(request) {
+    const url = new URL(request.url);
+    const routeScope = createRouteScope(request);
+    const routePolicy = resolveRoutePolicy(routeScope);
+    const attempts = parseAttempts(url.searchParams.get("attempts"));
+
+    const report = createAgentCdnControlReport({
+        attempts,
+        routePolicy,
+        routeScope
+    });
+
+    return Response.json(report, { headers: secureHeaders() });
+}
+
+function parseAttempts(rawAttempts) {
+    if (typeof rawAttempts !== "string" || rawAttempts.length === 0) {
+        return [];
+    }
+
+    return rawAttempts
+        .split(",")
+        .map(part => part.trim())
+        .filter(part => part.length > 0)
+        .map(part => {
+            const separatorIndex = part.indexOf(":");
+
+            if (separatorIndex < 0) {
+                return {
+                    provider: part,
+                    result: "PROVIDER_FETCH_ERROR"
+                };
+            }
+
+            return {
+                provider: part.slice(0, separatorIndex),
+                result: part.slice(separatorIndex + 1)
+            };
+        });
+}
 
 async function routeRequest(request) {
     const startedAt = Date.now();
