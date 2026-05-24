@@ -1,6 +1,16 @@
+<p align="center">
+  <a href="#milestone-0-contributor-landing-zone" title="Contributor landing zone"><img src="https://img.shields.io/badge/M0-landing-2ea44f" alt="milestone 0 landing"></a><br>
+  <a href="#milestone-1-routing-foundation" title="Routing foundation"><img src="https://img.shields.io/badge/M1-routing-6f42c1" alt="milestone 1 routing"></a><br>
+  <a href="#milestone-3-content-trust-and-manifests" title="Content trust and manifests"><img src="https://img.shields.io/badge/M3-trust-f9c513" alt="milestone 3 trust"></a><br>
+  <a href="#milestone-4-peer-assisted-fallback" title="Peer assisted fallback"><img src="https://img.shields.io/badge/M4-peer-d73a49" alt="milestone 4 peer"></a>
+</p>
+
 # Milestones
 
 These milestones define the build path for Flareless. They are written so new contributors can understand what matters first, what is blocked, and where their work fits.
+
+> [!NOTE]
+> Milestones are ordered so contributors can see what is already usable, what is active, and what is still blocked by earlier trust or routing work.
 
 ## Milestone 0: Contributor landing zone
 
@@ -31,6 +41,9 @@ Exit criteria:
 2. A new contributor can run the local edge runtime.
 3. A new contributor can pick a first issue without private context.
 4. README points to every important contributor document.
+
+> [!TIP]
+> This milestone is about reducing contributor friction before pushing deeper protocol or transport work.
 
 ## Milestone 1: Routing foundation
 
@@ -117,6 +130,9 @@ Exit criteria:
 4. Signature fields are represented clearly.
 5. Peer delivery work has a defined trust contract.
 
+> [!IMPORTANT]
+> Peer fallback should not move ahead of content trust. Hashes, manifests, and verification rules are the safety contract.
+
 ## Milestone 4: Peer assisted fallback
 
 Goal: Make peer fallback safe, simulated, and ready for transport work.
@@ -173,6 +189,9 @@ Exit criteria:
 3. Transfer failure retries are defined.
 4. Hash validation is required before accepting a chunk.
 5. The browser transport does not bypass the security model.
+
+> [!WARNING]
+> Transport work must not bypass verification. A working peer transfer is not complete until unsafe chunks are rejected.
 
 ## Milestone 6: Demo quality release
 
