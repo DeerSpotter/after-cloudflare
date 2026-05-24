@@ -1,8 +1,18 @@
+<p align="center">
+  <a href="#purpose" title="Read module purpose"><img src="https://img.shields.io/badge/micro%20CDN-optional-6f42c1" alt="optional micro CDN"></a><br>
+  <a href="#safety-principles" title="Read safety principles"><img src="https://img.shields.io/badge/safety-opt%20in-2ea44f" alt="opt in safety"></a><br>
+  <a href="./protocol.md" title="Read protocol draft"><img src="https://img.shields.io/badge/protocol-draft-f9c513" alt="protocol draft"></a><br>
+  <a href="#non-goals" title="Read non goals"><img src="https://img.shields.io/badge/not%20an-exit%20node-d73a49" alt="not an exit node"></a>
+</p>
+
 # Optional Micro CDN Module
 
 This module is an optional experiment for community operated edge delivery.
 
 The core project does not require every node to cache or serve content. A node operator must explicitly enable this module before the node participates in file delivery.
+
+> [!IMPORTANT]
+> Micro CDN mode is opt in. A node should not cache, advertise, or serve content unless the operator explicitly enables that behavior.
 
 ## Purpose
 
@@ -27,6 +37,9 @@ The first goal is intentionally small:
 5. No full DNS replacement
 6. No TLS automation in the first version
 7. No attempt to replace large CDN providers feature for feature
+
+> [!WARNING]
+> This module should never become arbitrary proxying. It is for approved public static files only.
 
 ## Module layout
 
@@ -93,6 +106,9 @@ Use two local machines or two terminal windows.
 3. Register one approved static file
 4. Fetch the file through the coordinator route
 5. Confirm the node reports one cache hit
+
+> [!TIP]
+> The first demo should prove one boring path end to end before adding distribution, trust scoring, or complex routing.
 
 ## Positioning
 
