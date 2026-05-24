@@ -80,14 +80,28 @@
   stroke: #ffe3a0;
 }
 
+.policy-agent-node.is-error rect,
+.policy-suggestion-node.is-error rect {
+  fill: #ff6262;
+  stroke: #ffd1d1;
+  filter: drop-shadow(0 0 1rem rgba(255, 98, 98, 0.5));
+}
+
+.policy-agent-node.is-error text,
+.policy-suggestion-node.is-error text {
+  fill: #2a0303;
+}
+
 .policy-node.is-success circle,
-.policy-suggestion-node.is-success rect {
+.policy-suggestion-node.is-success rect,
+.policy-suggestion-node.is-corrected rect {
   fill: #66f0c2;
   stroke: #c8ffe9;
   filter: drop-shadow(0 0 0.9rem rgba(102, 240, 194, 0.42));
 }
 
-.policy-agent-node.is-success rect {
+.policy-agent-node.is-success rect,
+.policy-agent-node.is-corrected rect {
   fill: #dbe4ff;
   stroke: #ffffff;
   filter: drop-shadow(0 0 0.9rem rgba(219, 228, 255, 0.38));
@@ -101,6 +115,15 @@
   background: rgba(255, 255, 255, 0.055);
   color: #dbe4ff;
   line-height: 1.45;
+}
+
+.policy-demo-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.agent-suggestion-apply {
+  background: linear-gradient(180deg, #ff6262 0%, #ffc857 100%);
 }
 
 @media (max-width: 41.99rem) {
