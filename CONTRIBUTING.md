@@ -1,13 +1,7 @@
 <p align="center">
-  <a href="#working-style" title="Read the build first working style">
-    <img src="https://img.shields.io/badge/contributions-build%20first-2ea44f" alt="contributions build first">
-  </a>
-  <a href="#pull-request-checklist" title="Read the pull request checklist">
-    <img src="https://img.shields.io/badge/pull%20requests-small%20and%20focused-6f42c1" alt="pull requests small and focused">
-  </a>
-  <a href="./ARCHITECTURE.md#security-boundaries" title="Read provider neutrality and security boundaries">
-    <img src="https://img.shields.io/badge/provider%20neutral-required-f9c513" alt="provider neutral required">
-  </a>
+  <a href="#working-style" title="Read the build first working style"><img src="https://img.shields.io/badge/build-first-2ea44f" alt="build first"></a><br>
+  <a href="#pull-request-checklist" title="Read the pull request checklist"><img src="https://img.shields.io/badge/PRs-focused-6f42c1" alt="focused pull requests"></a><br>
+  <a href="./ARCHITECTURE.md#security-boundaries" title="Read provider neutrality and security boundaries"><img src="https://img.shields.io/badge/provider-neutral-f9c513" alt="provider neutral"></a>
 </p>
 
 # Contributing
