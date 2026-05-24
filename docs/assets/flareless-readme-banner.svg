@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Flareless README banner</title>
+  <desc id="desc">Flareless peer assisted delivery banner showing CDN failover, peer mesh, integrity verification, and policy controlled origin fallback.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="48%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .title { font: 800 72px Arial, Helvetica, sans-serif; fill: #ffffff; letter-spacing: 0.5px; }
+      .subtitle { font: 400 26px Arial, Helvetica, sans-serif; fill: #dbeafe; }
+      .label { font: 700 17px Arial, Helvetica, sans-serif; fill: #ffffff; }
+      .small { font: 400 13px Arial, Helvetica, sans-serif; fill: #cbd5e1; }
+      .node { fill: rgba(15, 23, 42, 0.72); stroke: rgba(255, 255, 255, 0.18); stroke-width: 1.5; }
+      .line { fill: none; stroke: url(#accent); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+      .dot { fill: #ffffff; stroke: url(#accent); stroke-width: 4; }
+    </style>
+  </defs>
+  <rect width="1200" height="360" rx="28" fill="url(#bg)"/>
+  <circle cx="1010" cy="74" r="120" fill="#38bdf8" opacity="0.10"/>
+  <circle cx="1090" cy="260" r="155" fill="#34d399" opacity="0.09"/>
+  <circle cx="140" cy="300" r="170" fill="#a78bfa" opacity="0.10"/>
+
+  <text x="70" y="112" class="title">Flareless</text>
+  <text x="74" y="154" class="subtitle">Peer assisted delivery when traditional CDN paths fail</text>
+  <rect x="74" y="182" width="470" height="8" rx="4" fill="url(#accent)" filter="url(#softGlow)"/>
+
+  <path class="line" d="M95 264 C205 210, 295 312, 405 260 S595 210, 705 260 S895 312, 1005 260" opacity="0.95"/>
+
+  <g transform="translate(72 222)">
+    <rect class="node" width="170" height="84" rx="18"/>
+    <circle class="dot" cx="30" cy="42" r="10"/>
+    <text x="52" y="34" class="label">Primary CDN</text>
+    <text x="52" y="57" class="small">timeout aware</text>
+  </g>
+
+  <g transform="translate(302 222)">
+    <rect class="node" width="178" height="84" rx="18"/>
+    <circle class="dot" cx="30" cy="42" r="10"/>
+    <text x="52" y="34" class="label">Secondary CDN</text>
+    <text x="52" y="57" class="small">provider failover</text>
+  </g>
+
+  <g transform="translate(540 222)">
+    <rect class="node" width="178" height="84" rx="18"/>
+    <circle class="dot" cx="30" cy="42" r="10"/>
+    <text x="52" y="34" class="label">Peer Mesh</text>
+    <text x="52" y="57" class="small">assisted chunks</text>
+  </g>
+
+  <g transform="translate(778 222)">
+    <rect class="node" width="184" height="84" rx="18"/>
+    <circle class="dot" cx="30" cy="42" r="10"/>
+    <text x="52" y="34" class="label">Integrity</text>
+    <text x="52" y="57" class="small">hash verified</text>
+  </g>
+
+  <g transform="translate(1020 222)">
+    <rect class="node" width="132" height="84" rx="18"/>
+    <circle class="dot" cx="30" cy="42" r="10"/>
+    <text x="52" y="34" class="label">Origin</text>
+    <text x="52" y="57" class="small">by policy</text>
+  </g>
+</svg>
