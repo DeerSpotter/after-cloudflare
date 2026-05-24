@@ -38,15 +38,18 @@ The mobile demo is static and requires no worker, backend, or paid hosting. It s
 
 ## Start Here
 
-* `QUICKSTART.md` explains how to run the local runtime, tests, and simulator.
-* `demo/` contains a no hosting mobile browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
-* `ROADMAP.md` breaks the project into contributor ready modules.
-* `MILESTONES.md` defines the build phases and exit criteria.
-* `ARCHITECTURE.md` explains request flow, provider selection, health, manifests, and peer fallback.
-* `modules/micro-cdn/README.md` explains the optional community micro CDN prototype.
-* `CONTRIBUTING.md` explains how to contribute without needing private context.
-* `SECURITY.md` explains trust boundaries, peer rules, provider routing rules, and secret handling.
-* `CODE_OF_CONDUCT.md` keeps the project sharp without letting it become personal.
+* [Quickstart](./QUICKSTART.md) explains how to run the local runtime, tests, and simulator.
+* [Mobile Demo](./demo/) contains a no hosting mobile browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
+* [Roadmap](./ROADMAP.md) breaks the project into contributor ready modules.
+* [Milestones](./MILESTONES.md) defines the build phases and exit criteria.
+* [Architecture](./ARCHITECTURE.md) explains request flow, provider selection, health, manifests, and peer fallback.
+* [Optional Micro CDN Module](./modules/micro-cdn/README.md) explains the optional community micro CDN prototype.
+* [Micro CDN Protocol Draft](./modules/micro-cdn/protocol.md) defines node registration, content registration, routing responses, and v1 constraints.
+* [Micro CDN Node Agent](./modules/micro-cdn/node-agent/README.md) explains how a node caches, serves, advertises, and deletes approved content.
+* [Micro CDN Coordinator](./modules/micro-cdn/coordinator/README.md) explains local coordinator state, endpoints, routing purpose, and current limits.
+* [Contributing](./CONTRIBUTING.md) explains how to contribute without needing private context.
+* [Security](./SECURITY.md) explains trust boundaries, peer rules, provider routing rules, and secret handling.
+* [Code of Conduct](./CODE_OF_CONDUCT.md) keeps the project sharp without letting it become personal.
 
 ## Core Idea
 
