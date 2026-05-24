@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="#run" title="Run the node agent"><img src="https://img.shields.io/badge/node-agent-2ea44f" alt="node agent"></a><br>
+  <a href="#persistent-cache-manifest" title="Read persistent manifest behavior"><img src="https://img.shields.io/badge/cache-persistent-6f42c1" alt="persistent cache"></a><br>
+  <a href="#cache-a-local-file" title="Cache a local file"><img src="https://img.shields.io/badge/cache-local-f9c513" alt="cache local"></a><br>
+  <a href="#disable-micro-cdn-mode" title="Disable micro CDN mode"><img src="https://img.shields.io/badge/mode-opt%20in-d73a49" alt="opt in mode"></a>
+</p>
+
 # Micro CDN Node Agent
 
 This is the boring prototype node agent for the optional micro CDN module.
@@ -14,6 +21,9 @@ It is intentionally simple:
 8. Re advertises cached content after restart
 9. Deletes cached content cleanly
 10. Unadvertises deleted content from the coordinator
+
+> [!IMPORTANT]
+> The node agent should only serve approved cached files when micro CDN mode is explicitly enabled.
 
 ## Run
 
@@ -71,6 +81,9 @@ On startup, the node:
 4. Registers with the coordinator
 5. Re advertises cached content
 
+> [!NOTE]
+> Re advertising cached content after restart lets a node recover useful state without manual operator cleanup.
+
 ## View manifest
 
 ```bash
@@ -121,6 +134,9 @@ Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:8081/cache/hello.txt"
 
 Deleting cached content removes the local cache file, removes the manifest entry, and calls the coordinator unadvertise endpoint.
 
+> [!WARNING]
+> Delete behavior should clean up both local state and coordinator advertisement. A stale advertisement can route users to content the node no longer has.
+
 ## Health
 
 ```bash
@@ -136,3 +152,6 @@ Set this in the config:
 ```
 
 When disabled, the node can still run, but it will not cache or serve files.
+
+> [!TIP]
+> Disable mode is the operator escape hatch. It should stay simple and predictable.
