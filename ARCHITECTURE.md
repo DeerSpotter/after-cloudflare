@@ -1,6 +1,7 @@
 <p align="center">
   <a href="#runtime-path" title="Read the runtime path"><img src="https://img.shields.io/badge/runtime-router-2ea44f" alt="runtime router"></a><br>
   <a href="#provider-selection" title="Read provider selection"><img src="https://img.shields.io/badge/providers-ranked-6f42c1" alt="providers ranked"></a><br>
+  <a href="#agent-assisted-cdn-control" title="Read agent assisted CDN control"><img src="https://img.shields.io/badge/agent-CDN%20control-0969da" alt="agent CDN control"></a><br>
   <a href="#peer-assisted-fallback" title="Read peer assisted fallback"><img src="https://img.shields.io/badge/peer-fallback-f9c513" alt="peer fallback"></a><br>
   <a href="#security-boundaries" title="Read security boundaries"><img src="https://img.shields.io/badge/security-boundaries-d73a49" alt="security boundaries"></a>
 </p>
@@ -10,7 +11,7 @@
 Flareless is a provider neutral edge runtime and routing system. It separates traffic control from any single CDN so requests can route around outages, blocking, policy failures, rate limits, and degraded network paths.
 
 > [!IMPORTANT]
-> Flareless should keep routing decisions explainable. Provider choice, peer fallback, and origin fallback should be visible through reason codes, headers, or documented policy.
+> Flareless should keep routing decisions explainable. Provider choice, peer fallback, origin fallback, and agent recommendations should be visible through reason codes, headers, endpoints, or documented policy.
 
 ## System overview
 
@@ -22,6 +23,8 @@ Flareless runtime
   |---- Provider adapter A
   |---- Provider adapter B
   |---- Provider adapter C
+  |
+Agent assisted CDN control
   |
 Peer assisted fallback
   |
@@ -40,6 +43,7 @@ The Worker runtime handles:
 * `/manifest`
 * `/peer/room-info`
 * `/peer/ws`
+* `/agent/cdn-control`
 * Default routed asset requests
 
 For normal asset requests, the runtime:
@@ -156,6 +160,42 @@ Future work should add:
 * Circuit breakers
 * More detailed structured provider errors
 
+## Agent assisted CDN control
+
+Current path: `src/agent/cdnControl.js`
+
+Current endpoint:
+
+```text
+/agent/cdn-control
+```
+
+The agent assisted CDN control layer is observe and recommend. It does not replace the fast routing path, does not silently change route policy, and does not bypass origin or peer safety rules.
+
+The agent receives provider attempts, route policy, and route scope, then returns:
+
+* Provider failure summary
+* Timeout, block, and fetch error notices
+* Scoped recommendation
+* Proposed policy annotation
+* Cooldown provider list
+* Whether peer fallback or origin fallback should remain allowed
+
+Example query:
+
+```text
+/agent/cdn-control?attempts=cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_BLOCKED_429,cdn-c:PROVIDER_SUCCESS
+```
+
+Expected recommendation shape:
+
+```text
+COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK
+```
+
+> [!IMPORTANT]
+> The agent recommends bounded policy changes for review. It should not become an automatic control plane that globally reroutes unrelated assets or users.
+
 ## Manifest model
 
 Current path: `src/mgp/protocol.js`
@@ -249,6 +289,7 @@ Safe areas for early contributors:
 * Route scoring improvements
 * Local simulation scenarios
 * Health check structure
+* Agent assisted CDN control recommendations
 
 Areas that need extra review:
 
@@ -258,3 +299,4 @@ Areas that need extra review:
 * Origin access controls
 * Abuse prevention
 * Provider auth logic
+* Automatic policy mutation
