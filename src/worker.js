@@ -9,6 +9,7 @@ import { createPeerFallbackResponse } from "./peer/peerFallback.js";
 import { createFallbackBlockedResponse, createOriginFallbackResponse } from "./origin/originFallback.js";
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
 import { createAgentCdnControlReport } from "./agent/cdnControl.js";
+import { createFailurePointTracker, formatFailurePointHeader } from "./agent/failurePointTracker.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
 import { DemoPresenceRoom } from "./demo/presenceObject.js";
 
@@ -63,9 +64,11 @@ async function createAgentCdnControlResponse(request) {
     const routeScope = createRouteScope(request);
     const routePolicy = resolveRoutePolicy(routeScope);
     const attempts = parseAttempts(url.searchParams.get("attempts"));
+    const failurePoints = parseFailurePoints(url.searchParams.get("failurePoints"));
 
     const report = createAgentCdnControlReport({
         attempts,
+        failurePoints,
         routePolicy,
         routeScope
     });
@@ -99,10 +102,24 @@ function parseAttempts(rawAttempts) {
         });
 }
 
+function parseFailurePoints(rawFailurePoints) {
+    if (typeof rawFailurePoints !== "string" || rawFailurePoints.length === 0) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(rawFailurePoints);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
 async function routeRequest(request) {
     const startedAt = Date.now();
     const routeScope = createRouteScope(request);
     const routePolicy = resolveRoutePolicy(routeScope);
+    const failurePointTracker = createFailurePointTracker(routeScope, routePolicy);
     const candidateProviders = applyRoutePolicyToProviders(PROVIDERS, routePolicy);
     const healthLayers = createHealthLayers(routeScope);
     const rankedProviders = selectProviders(candidateProviders, getLayeredHealthSnapshot(healthLayers));
@@ -117,6 +134,9 @@ async function routeRequest(request) {
                 provider: provider.name,
                 result: fetchResult.reason
             });
+            failurePointTracker.addProviderFailure(provider.name, fetchResult.reason, {
+                source: "providerFetch"
+            });
             markProviderFailureForScopes(routeScope, provider.name, normalizeFailureReason(fetchResult.reason));
             continue;
         }
@@ -124,9 +144,14 @@ async function routeRequest(request) {
         const response = fetchResult.response;
 
         if (BLOCK_STATUS_CODES.has(response.status)) {
+            const blockedResult = "PROVIDER_BLOCKED_" + response.status;
             attempts.push({
                 provider: provider.name,
-                result: "PROVIDER_BLOCKED_" + response.status
+                result: blockedResult
+            });
+            failurePointTracker.addProviderFailure(provider.name, blockedResult, {
+                status: response.status,
+                source: "providerResponse"
             });
             markProviderFailureForScopes(routeScope, provider.name, "blocked-" + response.status);
             continue;
@@ -138,6 +163,7 @@ async function routeRequest(request) {
         });
         markProviderSuccessForScopes(routeScope, provider.name, Date.now() - startedAt);
 
+        const failurePoints = failurePointTracker.snapshot();
         const headers = new Headers(response.headers);
         headers.set("x-open-edge-provider", provider.name);
         headers.set("x-mgp-route-id", routePacket.requestId);
@@ -148,6 +174,7 @@ async function routeRequest(request) {
         headers.set("x-flareless-policy-id", routePolicy.id);
         headers.set("x-flareless-reason", createRouteReason(attempts));
         headers.set("x-flareless-attempts", createAttemptHeader(attempts));
+        headers.set("x-flareless-failure-points", formatFailurePointHeader(failurePoints));
 
         const body = await response.arrayBuffer();
 
@@ -158,14 +185,43 @@ async function routeRequest(request) {
     }
 
     if (routePolicy.allowPeerFallback === true) {
-        return createPeerFallbackResponse(request, rankedProviders, 503, routePolicy);
+        failurePointTracker.addPeerFallbackPoint("PEER_FALLBACK_SELECTED", {
+            rankedProviderCount: rankedProviders.length
+        });
+        return addFailurePointHeaders(
+            createPeerFallbackResponse(request, rankedProviders, 503, routePolicy),
+            failurePointTracker.snapshot()
+        );
     }
 
     if (routePolicy.allowOriginFallback === true) {
-        return createOriginFallbackResponse(request, routePolicy, rankedProviders, 200);
+        failurePointTracker.addOriginFallbackPoint("ORIGIN_FALLBACK_SELECTED", {
+            rankedProviderCount: rankedProviders.length
+        });
+        return addFailurePointHeaders(
+            createOriginFallbackResponse(request, routePolicy, rankedProviders, 200),
+            failurePointTracker.snapshot()
+        );
     }
 
-    return createFallbackBlockedResponse(request, routePolicy, rankedProviders, 503);
+    failurePointTracker.addPolicyBlockedPoint("FALLBACK_BLOCKED_BY_POLICY", {
+        rankedProviderCount: rankedProviders.length
+    });
+    return addFailurePointHeaders(
+        createFallbackBlockedResponse(request, routePolicy, rankedProviders, 503),
+        failurePointTracker.snapshot()
+    );
+}
+
+function addFailurePointHeaders(response, failurePoints) {
+    const headers = new Headers(response.headers);
+    headers.set("x-flareless-failure-points", formatFailurePointHeader(failurePoints));
+
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+    });
 }
 
 function markProviderFailureForScopes(routeScope, providerName, reason) {
