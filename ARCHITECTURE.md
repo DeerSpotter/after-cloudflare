@@ -2,6 +2,7 @@
   <a href="#runtime-path" title="Read the runtime path"><img src="https://img.shields.io/badge/runtime-router-2ea44f" alt="runtime router"></a><br>
   <a href="#provider-selection" title="Read provider selection"><img src="https://img.shields.io/badge/providers-ranked-6f42c1" alt="providers ranked"></a><br>
   <a href="#agent-assisted-cdn-control" title="Read agent assisted CDN control"><img src="https://img.shields.io/badge/agent-CDN%20control-0969da" alt="agent CDN control"></a><br>
+  <a href="#failure-point-tracking" title="Read failure point tracking"><img src="https://img.shields.io/badge/failure-points-d73a49" alt="failure points"></a><br>
   <a href="#peer-assisted-fallback" title="Read peer assisted fallback"><img src="https://img.shields.io/badge/peer-fallback-f9c513" alt="peer fallback"></a><br>
   <a href="#security-boundaries" title="Read security boundaries"><img src="https://img.shields.io/badge/security-boundaries-d73a49" alt="security boundaries"></a>
 </p>
@@ -11,7 +12,7 @@
 Flareless is a provider neutral edge runtime and routing system. It separates traffic control from any single CDN so requests can route around outages, blocking, policy failures, rate limits, and degraded network paths.
 
 > [!IMPORTANT]
-> Flareless should keep routing decisions explainable. Provider choice, peer fallback, origin fallback, and agent recommendations should be visible through reason codes, headers, endpoints, or documented policy.
+> Flareless should keep routing decisions explainable. Provider choice, peer fallback, origin fallback, failure points, and agent recommendations should be visible through reason codes, headers, endpoints, or documented policy.
 
 ## System overview
 
@@ -24,6 +25,8 @@ Flareless runtime
   |---- Provider adapter B
   |---- Provider adapter C
   |
+Failure point tracking
+  |
 Agent assisted CDN control
   |
 Peer assisted fallback
@@ -31,7 +34,7 @@ Peer assisted fallback
 Origin or object storage
 ```
 
-The runtime receives an incoming request, ranks available providers, attempts each provider in order, records provider health, and returns a peer fallback response when all provider routes fail.
+The runtime receives an incoming request, ranks available providers, attempts each provider in order, records provider health, tracks failure points, and returns a peer fallback response when all provider routes fail.
 
 ## Runtime path
 
@@ -53,9 +56,10 @@ For normal asset requests, the runtime:
 3. Ranks providers.
 4. Fetches through the highest ranked provider with a provider specific timeout.
 5. Records each provider attempt.
-6. Marks success or failure.
-7. Falls through to the next provider on timeout, blocked status, or failed response.
-8. Emits a peer fallback response if no provider succeeds.
+6. Tracks failure points for timeout, blocked status, fetch error, peer fallback, origin fallback, or policy blocked fallback.
+7. Marks success or failure.
+8. Falls through to the next provider on timeout, blocked status, or failed response.
+9. Emits a peer fallback response if no provider succeeds.
 
 Successful routed responses include explanation headers:
 
@@ -64,6 +68,7 @@ x-flareless-provider: cdn-b
 x-flareless-route-id: route-id
 x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
 x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS
+x-flareless-failure-points: 1:PROVIDER_TIMEOUT:cdn-a:PROVIDER_TIMEOUT
 ```
 
 The legacy `x-open-edge-provider` and `x-mgp-route-id` headers are still emitted for compatibility with the earlier prototype.
@@ -172,10 +177,11 @@ Current endpoint:
 
 The agent assisted CDN control layer is observe and recommend. It does not replace the fast routing path, does not silently change route policy, and does not bypass origin or peer safety rules.
 
-The agent receives provider attempts, route policy, and route scope, then returns:
+The agent receives provider attempts, failure points, route policy, and route scope, then returns:
 
 * Provider failure summary
-* Timeout, block, and fetch error notices
+* Failure point chain summary
+* Timeout, block, fetch error, and failure point notices
 * Scoped recommendation
 * Proposed policy annotation
 * Cooldown provider list
@@ -195,6 +201,44 @@ COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK
 
 > [!IMPORTANT]
 > The agent recommends bounded policy changes for review. It should not become an automatic control plane that globally reroutes unrelated assets or users.
+
+## Failure point tracking
+
+Current path: `src/agent/failurePointTracker.js`
+
+Failure point tracking records where the route broke, not just which provider returned a failure. A failure point includes:
+
+* Sequence number
+* Failure stage
+* Failure code
+* Provider when applicable
+* Route key
+* Chunk key
+* Policy ID
+* Whether peer or origin fallback was allowed
+* Detail fields such as response status or source
+
+Current stages include:
+
+```text
+PROVIDER_TIMEOUT
+PROVIDER_BLOCKED_STATUS
+PROVIDER_FETCH_ERROR
+PEER_FALLBACK_DECISION
+ORIGIN_FALLBACK_DECISION
+POLICY_BLOCKED_FALLBACK
+```
+
+Runtime responses expose a compact failure point chain through:
+
+```text
+x-flareless-failure-points
+```
+
+The agent report also includes the full `failurePoints` array and `failurePointSummary` object so the control layer can explain the first failure point, last failure point, stage counts, and provider counts.
+
+> [!TIP]
+> Failure point tracking is what lets the demo show what the agent noticed before suggesting a bounded route policy change.
 
 ## Manifest model
 
@@ -290,6 +334,7 @@ Safe areas for early contributors:
 * Local simulation scenarios
 * Health check structure
 * Agent assisted CDN control recommendations
+* Failure point tracking
 
 Areas that need extra review:
 
