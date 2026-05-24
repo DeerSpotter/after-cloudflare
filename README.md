@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="./docs/assets/flareless-readme-banner.svg" alt="Flareless peer assisted delivery banner">
+  <a href="./ARCHITECTURE.md" title="Read the Flareless architecture">
+    <img src="./docs/assets/flareless-readme-banner.svg" alt="Flareless peer assisted delivery banner">
+  </a>
 </p>
 
 <p align="center">
