@@ -7,8 +7,8 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Flareless Mobile Demo</title>
-  <link rel="stylesheet" href="./style.css?v=20260524-2">
-  <link rel="stylesheet" href="./agent-policy.css?v=20260524-2">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./agent-policy.css">
 </head>
 <body>
   <main class="shell">
@@ -36,11 +36,11 @@
       <div id="demoChoices" class="demo-choices">
         <code class="path">/video/show-name/episode-001/v17/720p/chunk-0001.ts</code>
         <div class="button-grid" aria-label="Demo scenarios">
+          <button type="button" data-scenario="agentAssistedControl">Agent assisted CDN control</button>
           <button type="button" data-scenario="normal">Normal route</button>
           <button type="button" data-scenario="timeout">Timeout failover</button>
           <button type="button" data-scenario="http403">HTTP 403 failover</button>
           <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
-          <button type="button" data-scenario="agentAssistedControl">Agent assisted CDN control</button>
           <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
           <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
           <button type="button" data-scenario="routeScopedHealth">Route failure stays scoped</button>
@@ -170,8 +170,8 @@
     </section>
   </main>
 
-  <script src="./presence.js?v=20260524-2" type="module"></script>
-  <script src="./app.js?v=20260524-2" type="module"></script>
-  <script src="./agent-policy.js?v=20260524-2" type="module"></script>
+  <script src="./presence.js" type="module"></script>
+  <script src="./app.js" type="module"></script>
+  <script src="./agent-policy.js" type="module"></script>
 </body>
 </html>
