@@ -1,6 +1,16 @@
+<p align="center">
+  <a href="#runtime-path" title="Read the runtime path"><img src="https://img.shields.io/badge/runtime-router-2ea44f" alt="runtime router"></a><br>
+  <a href="#provider-selection" title="Read provider selection"><img src="https://img.shields.io/badge/providers-ranked-6f42c1" alt="providers ranked"></a><br>
+  <a href="#peer-assisted-fallback" title="Read peer assisted fallback"><img src="https://img.shields.io/badge/peer-fallback-f9c513" alt="peer fallback"></a><br>
+  <a href="#security-boundaries" title="Read security boundaries"><img src="https://img.shields.io/badge/security-boundaries-d73a49" alt="security boundaries"></a>
+</p>
+
 # Architecture
 
 Flareless is a provider neutral edge runtime and routing system. It separates traffic control from any single CDN so requests can route around outages, blocking, policy failures, rate limits, and degraded network paths.
+
+> [!IMPORTANT]
+> Flareless should keep routing decisions explainable. Provider choice, peer fallback, and origin fallback should be visible through reason codes, headers, or documented policy.
 
 ## System overview
 
@@ -69,6 +79,9 @@ Provider scoring currently considers:
 
 Lower scores are preferred. Route explanation headers now describe whether the selected provider was used directly or reached after failover.
 
+> [!NOTE]
+> Provider ranking should prefer the best healthy route, not a favorite vendor. The design goal is provider neutral recovery.
+
 ## Health model
 
 Current path: `src/routing/health.js`
@@ -106,6 +119,9 @@ This means a bad `cdn-a` response for one route should not poison every request.
 Route policy also stays scoped. A video route can allow peer fallback while blocking origin fallback. A private route can block both peer and origin fallback. An origin allowed route can skip peer fallback and use origin only as a controlled last resort.
 
 The long term control plane should preserve this model. Distributed probes, regional scoring, and operator controls should feed scoped health buckets instead of creating one central decision point.
+
+> [!WARNING]
+> A failover system can accidentally become a new control plane dependency. Scoped health and scoped policy are the protection against that problem.
 
 ## Provider adapter
 
@@ -177,6 +193,9 @@ The peer scheduler currently tracks:
 * Cooldown windows
 
 Future work should add WebRTC transport, hash validation, peer trust penalties, and abuse controls.
+
+> [!CAUTION]
+> Peer speed is useful only after integrity is proven. Fast invalid content should be rejected and penalized.
 
 ## Control plane services
 
