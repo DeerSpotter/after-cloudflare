@@ -1,8 +1,30 @@
+<p align="center">
+  <img src="https://img.shields.io/badge/runtime-active%20prototype-2ea44f" alt="runtime active prototype">
+  <img src="https://img.shields.io/badge/peer%20delivery-open%20track-6f42c1" alt="peer delivery open track">
+  <img src="https://img.shields.io/badge/manifests-integrity%20first-f9c513" alt="manifests integrity first">
+  <img src="https://img.shields.io/badge/security-policy%20first-d73a49" alt="security policy first">
+</p>
+
 # Roadmap
 
 Flareless is being built as a provider neutral edge runtime and routing system. The goal is to route around outages, provider lock in, policy failures, degraded networks, and single vendor control.
 
 This roadmap splits the project into modules so contributors can join without needing private context.
+
+> [!NOTE]
+> The roadmap is organized by contribution track. Each track should explain its purpose, inputs, outputs, current status, beginner tasks, and advanced tasks.
+
+```mermaid
+flowchart LR
+    R[Runtime prototype] --> F[Provider failover]
+    F --> M[Manifest integrity]
+    M --> P[Peer assisted delivery]
+    P --> H[Distributed health checks]
+    H --> D[Deployment examples]
+    S[Security and abuse controls] -. review .-> R
+    S -. review .-> M
+    S -. review .-> P
+```
 
 ## Current tracks
 
@@ -78,6 +100,9 @@ Advanced tasks:
 * Add peer trust scoring.
 * Add bandwidth aware upload limiting.
 
+> [!IMPORTANT]
+> Peer assisted delivery should stay integrity led. The project should prove the chunk first, then care about speed.
+
 ### Manifest and content integrity
 
 Path: `src/mgp/`
@@ -150,6 +175,9 @@ Advanced tasks:
 * Add peer reputation penalties.
 * Add origin access control rules.
 
+> [!WARNING]
+> Security work should make abuse harder and review easier. It should not hide real behavior from maintainers or users.
+
 ## Priority sequence
 
 1. Make the repo easy to clone, test, and understand.
@@ -181,3 +209,6 @@ A contribution is done when it:
 * Documents any new protocol behavior.
 * Does not add vendor secrets or private credentials.
 * Keeps the project provider neutral.
+
+> [!TIP]
+> A finished contribution should make Flareless easier to test, safer to run, or clearer to explain.
