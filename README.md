@@ -41,6 +41,7 @@ The mobile demo is static and requires no worker, backend, or paid hosting. It s
 * [Quickstart](./QUICKSTART.md) explains how to run the local runtime, tests, and simulator.
 * [Mobile Demo](./demo/) contains a no hosting mobile browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
 * [Honest Feedback](./HONEST_FEEDBACK.md) is the blunt current project review, including what is strong, what is overclaimed, and what should happen next.
+* [Failure Point Tracking](./docs/failure-point-tracking.md) explains how Flareless records where a route broke before agent recommendations or fallback decisions.
 * [Roadmap](./ROADMAP.md) breaks the project into contributor ready modules.
 * [Milestones](./MILESTONES.md) defines the build phases and exit criteria.
 * [Architecture](./ARCHITECTURE.md) explains request flow, provider selection, health, manifests, and peer fallback.
