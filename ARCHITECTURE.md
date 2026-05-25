@@ -2,7 +2,7 @@
   <a href="#runtime-path" title="Read the runtime path"><img src="https://img.shields.io/badge/runtime-router-2ea44f" alt="runtime router"></a><br>
   <a href="#provider-selection" title="Read provider selection"><img src="https://img.shields.io/badge/providers-ranked-6f42c1" alt="providers ranked"></a><br>
   <a href="#agent-assisted-cdn-control" title="Read agent assisted CDN control"><img src="https://img.shields.io/badge/agent-CDN%20control-0969da" alt="agent CDN control"></a><br>
-  <a href="#failure-point-tracking" title="Read failure point tracking"><img src="https://img.shields.io/badge/failure-points-d73a49" alt="failure points"></a><br>
+  <a href="./docs/failure-point-tracking.md" title="Read the standalone failure point tracking guide"><img src="https://img.shields.io/badge/failure-points-d73a49" alt="failure points"></a><br>
   <a href="#peer-assisted-fallback" title="Read peer assisted fallback"><img src="https://img.shields.io/badge/peer-fallback-f9c513" alt="peer fallback"></a><br>
   <a href="#security-boundaries" title="Read security boundaries"><img src="https://img.shields.io/badge/security-boundaries-d73a49" alt="security boundaries"></a>
 </p>
@@ -203,6 +203,12 @@ COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK
 > The agent recommends bounded policy changes for review. It should not become an automatic control plane that globally reroutes unrelated assets or users.
 
 ## Failure point tracking
+
+Standalone guide:
+
+```text
+./docs/failure-point-tracking.md
+```
 
 Current path: `src/agent/failurePointTracker.js`
 
