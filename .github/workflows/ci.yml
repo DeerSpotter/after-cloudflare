@@ -29,6 +29,9 @@ jobs:
       - name: Test timeout failover demo
         run: npm run demo:timeout-failover
 
+      - name: Test offline simulator
+        run: npm run simulate -- --users=50 --segments=25 --requests=500 --seed=1337
+
   go:
     runs-on: ubuntu-latest
     steps:
