@@ -32,6 +32,9 @@ jobs:
       - name: Test offline simulator
         run: npm run simulate -- --users=50 --segments=25 --requests=500 --seed=1337
 
+      - name: Test micro CDN integration
+        run: npm run test:micro-cdn
+
   go:
     runs-on: ubuntu-latest
     steps:
