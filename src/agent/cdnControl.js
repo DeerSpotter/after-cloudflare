@@ -1,4 +1,5 @@
 import { summarizeFailurePoints } from "./failurePointTracker.js";
+import { createRouteTrace } from "./routeTrace.js";
 
 const PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT";
 const PROVIDER_FETCH_ERROR = "PROVIDER_FETCH_ERROR";
@@ -10,6 +11,7 @@ export function createAgentCdnControlReport(input = {}) {
     const failurePoints = normalizeFailurePoints(input.failurePoints);
     const routePolicy = normalizeRoutePolicy(input.routePolicy);
     const routeScope = normalizeRouteScope(input.routeScope);
+    const routeTrace = input.routeTrace && typeof input.routeTrace === "object" ? createRouteTrace(input.routeTrace) : null;
     const summary = summarizeAttempts(attempts);
     const failurePointSummary = summarizeFailurePoints(failurePoints);
     const notices = createAgentNotices(summary, failurePointSummary, routePolicy, routeScope);
@@ -20,6 +22,7 @@ export function createAgentCdnControlReport(input = {}) {
         mode: "observe-and-recommend",
         routeKey: routeScope.routeKey,
         policyId: routePolicy.id,
+        routeTrace,
         summary,
         failurePoints,
         failurePointSummary,
