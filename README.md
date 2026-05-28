@@ -41,6 +41,8 @@ This table is intentionally near the top so the repo stays honest about what is 
 | HTTP status failover | Prototype implemented |
 | Route scoped health | Prototype implemented |
 | Failure point tracking | Implemented |
+| Route trace object | Implemented |
+| Agent route trace analysis | Implemented |
 | Agent recommendation report | Implemented |
 | Static public demo | Implemented as simulation |
 | Peer fallback | JSON fallback response only |
@@ -186,6 +188,29 @@ x-flareless-provider: cdn-c
 x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
 x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_BLOCKED_429,cdn-c:PROVIDER_SUCCESS
 x-flareless-failure-points: 1:PROVIDER_TIMEOUT:cdn-a:PROVIDER_TIMEOUT,2:PROVIDER_BLOCKED_STATUS:cdn-b:PROVIDER_BLOCKED_429
+x-flareless-route-trace: encoded routeTrace JSON
+```
+
+Route trace shape:
+
+```text
+routeTrace = {
+  requestId,
+  routeKey,
+  policyId,
+  attempts,
+  failurePoints,
+  selectedFallback,
+  finalStatus
+}
+```
+
+Agent route trace analysis:
+
+```bash
+curl -X POST http://localhost:8787/agent/cdn-control \
+  -H "content-type: application/json" \
+  -d '{"routeTrace":{"requestId":"trace-001","routeKey":"route:/video/example/v1","policyId":"video-public-peer-first","attempts":[{"provider":"cdn-a","result":"PROVIDER_TIMEOUT"}],"failurePoints":[],"selectedFallback":null,"finalStatus":{"outcome":"provider-success","statusCode":200,"provider":"cdn-b","reason":"PROVIDER_TIMEOUT_FAILOVER"}}}'
 ```
 
 Local runner:
