@@ -8,7 +8,7 @@
   <a href="./ROADMAP.md" title="View the active prototype roadmap"><img src="https://img.shields.io/badge/status-prototype-orange" alt="status prototype"></a><br>
   <a href="https://deerspotter.github.io/flareless/demo/" title="Open the live routing failure demo"><img src="https://img.shields.io/badge/CDN-failover-d73a49" alt="CDN failover"></a><br>
   <a href="./ARCHITECTURE.md#peer-assisted-fallback" title="Read the peer assisted fallback architecture"><img src="https://img.shields.io/badge/peer-assist-6f42c1" alt="peer assist"></a><br>
-  <a href="./SECURITY.md#peer-delivery-rules" title="Read the peer integrity verification rules"><img src="https://img.shields.io/badge/integrity-verified-2ea44f" alt="integrity verified"></a><br>
+  <a href="./SECURITY.md#peer-delivery-rules" title="Read the peer integrity verification rules"><img src="https://img.shields.io/badge/integrity-planned-f9c513" alt="integrity planned"></a><br>
   <a href="./ARCHITECTURE.md#avoiding-a-new-single-point-of-failure" title="Read the scoped route policy and origin fallback model"><img src="https://img.shields.io/badge/origin-controlled-f9c513" alt="origin controlled"></a>
 </p>
 
@@ -22,13 +22,35 @@ Not a rant. Not a boycott. Not a revenge repo.
 
 A build.
 
-An open source edge router and runtime for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
+An open source edge router and runtime prototype for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
 
 > [!IMPORTANT]
 > Flareless does not treat peer delivery as blind fallback. Route policy, integrity checks, provider health, and failure scope decide what happens next.
 
 > [!NOTE]
 > The current public demo is static. It simulates CDN timeout behavior, HTTP status failover, peer assisted fallback, and policy controlled origin fallback without requiring a worker, backend, or paid hosting.
+
+## Current Status
+
+This table is intentionally near the top so the repo stays honest about what is implemented now and what is still planned.
+
+| Feature | Status |
+| --- | --- |
+| Multi provider routing | Prototype implemented |
+| Provider timeout failover | Prototype implemented |
+| HTTP status failover | Prototype implemented |
+| Route scoped health | Prototype implemented |
+| Failure point tracking | Implemented |
+| Agent recommendation report | Implemented |
+| Static public demo | Implemented as simulation |
+| Peer fallback | JSON fallback response only |
+| Real peer chunk transfer | Not implemented |
+| Hash verified peer bytes | Not implemented |
+| Signed manifests | Not implemented |
+| Distributed health checks | Not implemented |
+| Durable production control plane | Not implemented |
+
+The strongest current identity is failure aware route control with agent assisted recommendations. The peer assisted delivery path is being prepared, but it is not yet a production peer CDN.
 
 ## Mobile Demo
 
@@ -65,11 +87,11 @@ flowchart LR
     STL --> A[CDN A]
     STL --> B[CDN B]
     STL --> C[CDN C]
-    STL --> P[Peer Assisted Edge]
-    A --> D[Verified Response]
+    STL --> P[Peer Assisted Fallback Path]
+    A --> D[Routed Response]
     B --> D
     C --> D
-    P --> V[Hash and Manifest Verification]
+    P --> V[Future Hash and Manifest Verification]
     V --> D
     STL --> O{Origin fallback allowed?}
     O -->|yes| OS[Origin Storage]
@@ -141,6 +163,29 @@ npm install
 npm test
 go test ./...
 go build ./...
+```
+
+Local provider chain integration test:
+
+```bash
+npm test
+```
+
+The integration test covers this route sequence:
+
+```text
+cdn-a times out
+cdn-b returns 429
+cdn-c succeeds
+```
+
+Expected route evidence:
+
+```text
+x-flareless-provider: cdn-c
+x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
+x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_BLOCKED_429,cdn-c:PROVIDER_SUCCESS
+x-flareless-failure-points: 1:PROVIDER_TIMEOUT:cdn-a:PROVIDER_TIMEOUT,2:PROVIDER_BLOCKED_STATUS:cdn-b:PROVIDER_BLOCKED_429
 ```
 
 Local runner:
@@ -253,9 +298,9 @@ flowchart TD
     A -->|timeout| B[Try next ranked CDN]
     A -->|403, 404, 429, or 5xx| B
     B -->|success| OK
-    B -->|all CDNs failed| P[Try peer assisted layer]
-    P -->|verified chunks| OK
-    P -->|peer failure| O{Origin fallback allowed?}
+    B -->|all CDNs failed| P[Return peer fallback response]
+    P -->|future verified chunks| OK
+    P -->|peer unavailable| O{Origin fallback allowed?}
     O -->|yes| OR[Fetch from origin]
     O -->|no| SAFE[Fail closed safely]
 ```
