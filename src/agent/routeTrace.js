@@ -42,12 +42,14 @@ export function createAgentInputFromRouteTrace(routeTrace = {}, routePolicy = {}
         failurePoints: trace.failurePoints,
         routePolicy: {
             ...routePolicy,
-            id: routePolicy?.id || trace.policyId,
-            routeKey: routePolicy?.routeKey || trace.routeKey
+            id: trace.policyId || routePolicy?.id,
+            routeKey: trace.routeKey || routePolicy?.routeKey
         },
         routeScope: {
             ...routeScope,
-            routeKey: routeScope?.routeKey || trace.routeKey
+            routeKey: trace.routeKey || routeScope?.routeKey,
+            chunkKey: trace.failurePoints[0]?.chunkKey || routeScope?.chunkKey,
+            path: trace.routeKey.startsWith("route:") ? trace.routeKey.slice("route:".length) : routeScope?.path
         },
         routeTrace: trace
     };
