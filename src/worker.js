@@ -10,6 +10,7 @@ import { createFallbackBlockedResponse, createOriginFallbackResponse } from "./o
 import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
 import { createAgentCdnControlReport } from "./agent/cdnControl.js";
 import { createFailurePointTracker, formatFailurePointHeader } from "./agent/failurePointTracker.js";
+import { createAgentInputFromRouteTrace, createRouteTraceFromRouteResult, encodeRouteTraceHeader, readRouteTraceFromRequest } from "./agent/routeTrace.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
 import { DemoPresenceRoom } from "./demo/presenceObject.js";
 
@@ -63,15 +64,18 @@ async function createAgentCdnControlResponse(request) {
     const url = new URL(request.url);
     const routeScope = createRouteScope(request);
     const routePolicy = resolveRoutePolicy(routeScope);
-    const attempts = parseAttempts(url.searchParams.get("attempts"));
-    const failurePoints = parseFailurePoints(url.searchParams.get("failurePoints"));
+    const routeTrace = await readRouteTraceFromRequest(request);
 
-    const report = createAgentCdnControlReport({
-        attempts,
-        failurePoints,
-        routePolicy,
-        routeScope
-    });
+    const reportInput = routeTrace === null
+        ? {
+            attempts: parseAttempts(url.searchParams.get("attempts")),
+            failurePoints: parseFailurePoints(url.searchParams.get("failurePoints")),
+            routePolicy,
+            routeScope
+        }
+        : createAgentInputFromRouteTrace(routeTrace, routePolicy, routeScope);
+
+    const report = createAgentCdnControlReport(reportInput);
 
     return Response.json(report, { headers: secureHeaders() });
 }
@@ -164,6 +168,19 @@ async function routeRequest(request) {
         markProviderSuccessForScopes(routeScope, provider.name, Date.now() - startedAt);
 
         const failurePoints = failurePointTracker.snapshot();
+        const routeReason = createRouteReason(attempts);
+        const routeTrace = createRouteTraceFromRouteResult({
+            requestId: routePacket.requestId,
+            routeKey: routePacket.routeKey,
+            policyId: routePolicy.id,
+            attempts,
+            failurePoints,
+            selectedFallback: null,
+            statusCode: response.status,
+            provider: provider.name,
+            reason: routeReason,
+            outcome: "provider-success"
+        });
         const headers = new Headers(response.headers);
         headers.set("x-open-edge-provider", provider.name);
         headers.set("x-mgp-route-id", routePacket.requestId);
@@ -172,9 +189,10 @@ async function routeRequest(request) {
         headers.set("x-flareless-route-key", routePacket.routeKey);
         headers.set("x-flareless-request-id", routePacket.requestId);
         headers.set("x-flareless-policy-id", routePolicy.id);
-        headers.set("x-flareless-reason", createRouteReason(attempts));
+        headers.set("x-flareless-reason", routeReason);
         headers.set("x-flareless-attempts", createAttemptHeader(attempts));
         headers.set("x-flareless-failure-points", formatFailurePointHeader(failurePoints));
+        headers.set("x-flareless-route-trace", encodeRouteTraceHeader(routeTrace));
 
         const body = await response.arrayBuffer();
 
@@ -188,9 +206,20 @@ async function routeRequest(request) {
         failurePointTracker.addPeerFallbackPoint("PEER_FALLBACK_SELECTED", {
             rankedProviderCount: rankedProviders.length
         });
-        return addFailurePointHeaders(
+        return addTraceHeaders(
             createPeerFallbackResponse(request, rankedProviders, 503, routePolicy),
-            failurePointTracker.snapshot()
+            createRouteTraceFromRouteResult({
+                requestId: routePacket.requestId,
+                routeKey: routePacket.routeKey,
+                policyId: routePolicy.id,
+                attempts,
+                failurePoints: failurePointTracker.snapshot(),
+                selectedFallback: "peer-fallback",
+                statusCode: 503,
+                provider: null,
+                reason: "ALL_PROVIDERS_FAILED_PEER_FALLBACK_SELECTED",
+                outcome: "peer-fallback"
+            })
         );
     }
 
@@ -198,24 +227,53 @@ async function routeRequest(request) {
         failurePointTracker.addOriginFallbackPoint("ORIGIN_FALLBACK_SELECTED", {
             rankedProviderCount: rankedProviders.length
         });
-        return addFailurePointHeaders(
+        return addTraceHeaders(
             createOriginFallbackResponse(request, routePolicy, rankedProviders, 200),
-            failurePointTracker.snapshot()
+            createRouteTraceFromRouteResult({
+                requestId: routePacket.requestId,
+                routeKey: routePacket.routeKey,
+                policyId: routePolicy.id,
+                attempts,
+                failurePoints: failurePointTracker.snapshot(),
+                selectedFallback: "origin-fallback",
+                statusCode: 200,
+                provider: null,
+                reason: "ALL_PROVIDERS_FAILED_ORIGIN_FALLBACK_SELECTED",
+                outcome: "origin-fallback"
+            })
         );
     }
 
     failurePointTracker.addPolicyBlockedPoint("FALLBACK_BLOCKED_BY_POLICY", {
         rankedProviderCount: rankedProviders.length
     });
-    return addFailurePointHeaders(
+    return addTraceHeaders(
         createFallbackBlockedResponse(request, routePolicy, rankedProviders, 503),
-        failurePointTracker.snapshot()
+        createRouteTraceFromRouteResult({
+            requestId: routePacket.requestId,
+            routeKey: routePacket.routeKey,
+            policyId: routePolicy.id,
+            attempts,
+            failurePoints: failurePointTracker.snapshot(),
+            selectedFallback: "fallback-blocked",
+            statusCode: 503,
+            provider: null,
+            reason: "ALL_PROVIDERS_FAILED_FALLBACK_BLOCKED_BY_POLICY",
+            outcome: "fallback-blocked"
+        })
     );
 }
 
-function addFailurePointHeaders(response, failurePoints) {
+function addTraceHeaders(response, routeTrace) {
     const headers = new Headers(response.headers);
-    headers.set("x-flareless-failure-points", formatFailurePointHeader(failurePoints));
+    headers.set("x-flareless-failure-points", formatFailurePointHeader(routeTrace.failurePoints));
+    headers.set("x-flareless-route-id", routeTrace.requestId);
+    headers.set("x-flareless-request-id", routeTrace.requestId);
+    headers.set("x-flareless-route-key", routeTrace.routeKey);
+    headers.set("x-flareless-policy-id", routeTrace.policyId);
+    headers.set("x-flareless-reason", routeTrace.finalStatus.reason || "ROUTE_TRACE_RECORDED");
+    headers.set("x-flareless-attempts", createAttemptHeader(routeTrace.attempts));
+    headers.set("x-flareless-route-trace", encodeRouteTraceHeader(routeTrace));
 
     return new Response(response.body, {
         status: response.status,
