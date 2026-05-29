@@ -2,42 +2,40 @@
 
 ## Bottom line
 
-A volunteer fork mirror system for a **public static site** is technically feasible on today’s GitHub stack, but only if Flareless treats supporter mirrors as **distribution endpoints, not trust anchors**. GitHub Pages can publish project sites directly from repositories, including forks, and GitHub exposes APIs to create forks, configure Pages, inspect Pages URLs, and inspect build and deployment status. That makes “supporter fork + GitHub Pages = potential mirror” realistic for static HTML, CSS, JS, images, fonts, and other immutable assets. It is **not** a fit for server-rendered apps, authenticated sessions, or any feature that depends on origin-side logic, because GitHub Pages is a static host and does not support server-side languages. citeturn1view1turn4view0turn28view0turn4view1
+A volunteer fork mirror system for a public static site is technically feasible on today’s GitHub stack, but only if Flareless treats supporter mirrors as distribution endpoints, not trust anchors. GitHub Pages can publish project sites directly from repositories, including forks, and GitHub exposes APIs to create forks, configure Pages, inspect Pages URLs, and inspect build and deployment status. That makes supporter fork plus GitHub Pages a realistic potential mirror model for static HTML, CSS, JavaScript, images, fonts, and other immutable public assets. It is not a fit for server rendered apps, authenticated sessions, or features that depend on origin side logic, because GitHub Pages is a static host.[^github-pages][^github-pages-api][^github-create-fork]
 
-The most practical architecture is **TUF-inspired but lighter weight**: the origin publishes a signed asset manifest and a signed mirror registry; clients verify signatures, version, expiration, and per-file hashes; mirrors are only accepted if they serve bytes that match the official signed manifest. In other words, the origin remains authoritative, and mirrors only contribute availability. This is exactly the kind of threat model where signed metadata, expiry, version checks, and rollback resistance matter. citeturn8view2turn8view6turn19view0turn19view3turn19view4
+The most practical architecture is TUF inspired but lighter weight: the origin publishes a signed asset manifest and a signed mirror registry; clients verify signatures, version, expiration, and per file hashes; mirrors are only accepted if they serve bytes that match the official signed manifest. The origin remains authoritative, and mirrors only contribute availability.[^tuf][^rfc8785][^rfc8032]
 
-The biggest non-obvious constraint is **bootstrap**. If the primary host is down, a brand-new user still needs _some_ trusted bootstrap path: a previously installed same-origin service worker can help returning users, but service workers are same-origin objects that must be registered over HTTPS, so they cannot rescue first-time visitors who never loaded the site before. Flareless therefore needs at least one independent recovery URL or recovery app, and should treat device-to-device cache sharing as optional rather than foundational. citeturn8view0turn8view1turn18view0
+The biggest non obvious constraint is bootstrap. If the primary host is down, a brand new user still needs some trusted bootstrap path. A previously installed same origin service worker can help returning users, but service workers are same origin objects that must be registered over HTTPS, so they cannot rescue first time visitors who never loaded the site before. Flareless therefore needs at least one independent recovery URL or recovery app, and should treat device to device cache sharing as optional rather than foundational.[^service-workers][^service-worker-register]
 
-My final recommendation is to build this as an **experimental optional mode first**, not a core default transport. The runtime failover and signed verification model are solid and worth shipping; the onboarding and registry automation should start simple and manual, then add a minimal GitHub App backend only if the project wants one-click mirror creation later. citeturn21view0turn28view0turn30view0turn30view2
+Final recommendation: build this as an experimental optional mode first, not a core default transport. The runtime failover and signed verification model are solid and worth shipping. The onboarding and registry automation should start simple and manual, then add a minimal GitHub App backend only if the project wants one click mirror creation later.[^github-app-auth][^github-oauth]
 
-## Feasibility and the recommended architecture
+## Feasibility and recommended architecture
 
-GitHub Pages is purpose-built to host static sites from repositories, including project sites at `https://<owner>.github.io/<repositoryname>`. Forks are independent repositories that preserve upstream relationship metadata, which is exactly what Flareless wants for volunteer mirrors: supporters can own their own copy, Pages can publish it, and the upstream project can still discover it through GitHub’s fork network and APIs. GitHub Pages is available for public repositories on GitHub Free, and project Pages sites are first-class supported behavior. citeturn3view2turn4view0turn3view0
+GitHub Pages is purpose built to host static sites from repositories, including project sites at `https://<owner>.github.io/<repositoryname>`. Forks are independent repositories that preserve upstream relationship metadata, which is useful for volunteer mirrors because supporters can own their own copy, Pages can publish it, and the upstream project can still discover it through GitHub’s fork network and APIs.[^github-pages][^github-list-forks]
 
-The key design decision is **how failover happens**. The strongest practical design is not “load random cross-origin assets into the broken canonical origin.” Instead, it is “use a trusted recovery loader to select a verified mirror, then **top-level navigate** the user to that mirror origin.” That avoids a large class of same-origin and service-worker problems. Service workers can only be registered when the script URL and scope are same-origin with the registering page, and cross-origin subresource integrity also requires CORS support from the serving origin. A top-level navigation model is much simpler and more robust than piecemeal cross-origin asset substitution. citeturn18view0turn17view0turn17view1
-
-That leads to the following practical architecture.
+The strongest practical design is not to load random cross origin assets into the broken canonical origin. The better design is to use a trusted recovery loader to select a verified mirror, then top level navigate the user to that mirror origin. That avoids a large class of same origin, service worker, Subresource Integrity, and CORS problems.[^service-worker-register][^sri][^cors]
 
 ```text
 [Official build pipeline]
         |
-        |-- build static site
-        |-- hash every file
-        |-- generate signed manifest.flareless.json
-        |-- generate signed mirrors.json
+        | build static site
+        | hash every file
+        | generate signed manifest.flareless.json
+        | generate signed mirrors.json
         v
 [Official endpoints]
-  - Primary CDN
-  - Secondary CDN
-  - Official GitHub Pages / recovery site
+  * Primary CDN
+  * Secondary CDN
+  * Official GitHub Pages recovery site
         |
         v
 [Client recovery loader]
-  - embedded root public key
-  - fetch signed manifest + signed mirror registry
-  - verify signatures, expiry, version
-  - probe candidates in order
-  - choose first healthy verified route
+  * embedded root public key
+  * fetch signed manifest and signed mirror registry
+  * verify signatures, expiry, and version
+  * probe candidates in order
+  * choose first healthy verified route
         |
         +--> serve from official endpoint if healthy
         |
@@ -46,48 +44,48 @@ That leads to the following practical architecture.
         +--> optional device mesh only if separately signaled
 ```
 
-The site itself should be built as a **portable static app**: relative asset paths, no hard-coded canonical asset host, no mirror-hostile absolute service-worker assumptions, and no origin-locked APIs unless there is a canonical-only degraded mode. This recommendation follows from GitHub Pages project-site URL structure and service-worker scope rules: every volunteer mirror will be at a different origin, typically under `/<repositoryname>`. citeturn4view0turn18view0
+The site should be built as a portable static app: relative asset paths, no hard coded canonical asset host, no mirror hostile absolute service worker assumptions, and no origin locked APIs unless there is a canonical only degraded mode. Every volunteer mirror will be at a different origin, typically under `/<repositoryname>`.[^github-pages][^service-worker-register]
 
-A subtle but important operational detail is that if you plan to let mirrors carry unique repository names, the chosen repository name should be treated as stable. GitHub documents that renaming a repository redirects most repository resources, **but not project site URLs**, and specifically recommends a custom domain if you want a Pages URL not to change during renames. For volunteer mirrors, that is a strong argument either for a stable repo name from the start or for using a separate `mirror_id` that is distinct from the repository name. citeturn33view0turn3view1
+If mirrors carry unique repository names, the chosen repository name should be treated as stable. GitHub documents that renaming a repository redirects many repository resources, but project Pages URLs are a special operational concern. For volunteer mirrors, use a stable repository name or use a separate `mirror_id` that is distinct from the repository name.[^github-rename-repo][^github-custom-domain]
 
 ## Bootstrap and failover behavior
 
-The bootstrap problem is the hard boundary between “interesting demo” and “actual resilience.” A returning user who already visited the site can benefit from a service worker and device-local cache; MDN explicitly describes service workers as acting like a proxy and enabling offline-first behavior by serving cached assets when the network is unavailable. But that same mechanism only works after prior installation on the same origin, and service-worker registration requires HTTPS and same-origin script URLs. As a result, **existing users** can sometimes recover via cache alone, while **new users** still need a reachable bootstrap endpoint somewhere else. citeturn8view0turn8view1turn18view0
+A returning user who already visited the site can benefit from a service worker and device local cache. A first time user still needs a reachable bootstrap endpoint somewhere else.[^service-workers][^service-worker-register]
 
-For Flareless, the practical bootstrap stack should be:
+Recommended bootstrap stack:
 
-- a normal canonical site with a cached recovery shell for returning users,
-- an **independent recovery URL** controlled by the project,
-- an official GitHub Pages recovery site or other static fallback on a different delivery path,
-- optional bookmarklet or browser extension for power users,
-- optional device mesh only after there is already a trusted bootstrap and discovery path. citeturn8view0turn18view0turn20search2turn20search3
+* A normal canonical site with a cached recovery shell for returning users.
+* An independent recovery URL controlled by the project.
+* An official GitHub Pages recovery site or other static fallback on a different delivery path.
+* Optional bookmarklet or browser extension for power users.
+* Optional device mesh only after there is already a trusted bootstrap and discovery path.
 
-The routing order I would implement is this:
+Recommended routing order:
 
 ```text
 1. Primary CDN
 2. Secondary CDN
 3. Official GitHub Pages recovery site
 4. Verified volunteer fork mirrors
-5. Device cache mesh, only if coordinator/signaling exists
+5. Device cache mesh, only if coordinator or signaling exists
 6. Direct origin fallback, only if policy explicitly allows it
 ```
 
-The logic behind that order is straightforward. Official endpoints should be preferred because they are operator-controlled. Verified volunteer mirrors come after official recovery because they improve availability but are still untrusted hosts. Device mesh comes later because WebRTC data channels can move arbitrary peer-to-peer data, but peer discovery and signaling are separate problems and should not be required for the first working version. citeturn20search0turn20search2turn20search3
+Official endpoints should be preferred because they are operator controlled. Verified volunteer mirrors come after official recovery because they improve availability but are still untrusted hosts. Device mesh comes later because WebRTC data channels can move peer to peer data, but peer discovery and signaling are separate problems and should not be required for the first working version.[^webrtc-datachannel][^webrtc-signaling]
 
-I would also make the health model explicit:
+Health rules:
 
-- mark a route unhealthy on timeout, network error, `429`, or repeated hash mismatch,
-- skip unhealthy routes until a backoff window expires,
-- permanently reject a mirror for the current registry version if the manifest or asset hashes fail verification,
-- require an exact manifest version match for volunteer mirrors,
-- allow stale-but-signed content only for an explicitly designed offline mode shown to previously cached users. citeturn1view0turn11search2turn8view2turn19view4
+* Mark a route unhealthy on timeout, network error, `429`, or repeated hash mismatch.
+* Skip unhealthy routes until a backoff window expires.
+* Reject a mirror for the current registry version if the manifest or asset hashes fail verification.
+* Require an exact manifest version match for volunteer mirrors.
+* Allow stale but signed content only for a deliberate offline mode shown to previously cached users.
 
-Example failover pseudocode:
+## Failover pseudocode
 
 ```js
 async function resolveFlarelessRoute(path) {
-  const bootstrap = await getTrustedBootstrap(); // cached SW or recovery host
+  const bootstrap = await getTrustedBootstrap();
   const manifest = await fetchAndVerifyManifest(bootstrap);
   const registry = await fetchAndVerifyMirrorRegistry(bootstrap);
 
@@ -96,30 +94,46 @@ async function resolveFlarelessRoute(path) {
     secondaryCdnUrl(path),
     officialPagesUrl(path),
     ...registry.mirrors
-      .filter(m => m.status === "active" && m.manifest_version === manifest.version)
-      .map(m => joinUrl(m.url, path)),
+      .filter((mirror) => mirror.status === "active")
+      .filter((mirror) => mirror.manifest_version === manifest.version)
+      .map((mirror) => joinUrl(mirror.url, path)),
     ...(deviceMeshAvailable() ? [meshUrl(path)] : []),
-    ...(allowOriginFallback ? [originUrl(path)] : []),
+    ...(allowOriginFallback ? [originUrl(path)] : [])
   ];
 
   for (const url of candidates) {
-    if (isTemporarilyUnhealthy(url)) continue;
+    if (isTemporarilyUnhealthy(url)) {
+      continue;
+    }
 
     try {
-      const res = await fetchWithTimeout(url, 5000);
-      if (!res.ok) throw new Error(`bad-status:${res.status}`);
+      const response = await fetchWithTimeout(url, 5000);
 
-      const bytes = await res.arrayBuffer();
+      if (!response.ok) {
+        throw new Error(`bad-status:${response.status}`);
+      }
+
+      const bytes = await response.arrayBuffer();
       const expected = manifest.targets[path];
-      if (!expected) throw new Error("path-not-in-manifest");
+
+      if (!expected) {
+        throw new Error("path-not-in-manifest");
+      }
 
       const actual = await sha256(bytes);
-      if (actual !== expected.sha256) throw new Error("hash-mismatch");
+
+      if (actual !== expected.sha256) {
+        throw new Error("hash-mismatch");
+      }
 
       markHealthy(url);
-      return new Response(bytes, { headers: { "Content-Type": expected.content_type } });
-    } catch (err) {
-      markUnhealthy(url, err.message);
+      return new Response(bytes, {
+        headers: {
+          "Content-Type": expected.content_type
+        }
+      });
+    } catch (error) {
+      markUnhealthy(url, error.message);
     }
   }
 
@@ -127,73 +141,67 @@ async function resolveFlarelessRoute(path) {
 }
 ```
 
-For volunteer mirrors specifically, I would use this pseudocode at **recovery-loader time** to select a mirror, then **navigate** to the mirror origin for full-site rendering, instead of trying to keep substituting cross-origin assets forever. That is the cleaner operational model. citeturn17view0turn18view0
+For volunteer mirrors, use this logic at recovery loader time to select a mirror, then navigate to the mirror origin for full site rendering instead of trying to keep substituting cross origin assets forever.
 
 ## Mirror creation and discovery
 
-The supporter flow is easiest to understand if you separate **runtime discovery** from **mirror onboarding**.
+The supporter flow should separate runtime discovery from mirror onboarding.
 
-At runtime, Flareless should prefer a **signed static mirror registry** over live GitHub API discovery. GitHub’s REST API can be called cross-origin from a browser, and the public `List forks` and Pages endpoints are available for public data, but the fork listing is paginated with a maximum of 100 results per page and unauthenticated REST use is only 60 requests per hour per IP. That makes browser-side fork discovery brittle for production failover, especially if the project becomes popular. A precomputed signed `mirrors.json` is much more dependable. citeturn6view1turn1view2turn15view0turn15view1
+At runtime, Flareless should prefer a signed static mirror registry over live GitHub API discovery. GitHub’s REST API is useful, but public unauthenticated API use is rate limited, fork listing is paginated, and live browser side discovery would be brittle for production failover. A precomputed signed `mirrors.json` is more dependable.[^github-list-forks][^github-rate-limits]
 
-For onboarding, I would rank the options this way.
+Best MVP flow:
 
-The **best MVP** is: user clicks **Help cache this site**, the UI explains the flow, the user forks manually through GitHub, enables Pages, and then registers the mirror through an issue form or issue comment. GitHub Actions in the main repo can parse the registration, verify the mirror, and open or update a pull request that changes `public/mirrors.json`. This keeps the control plane almost entirely static and avoids introducing a secret-bearing backend too early. GitHub supports issue comments through the REST API, and workflows can run on `issue_comment` events from the default branch. citeturn16view0turn23view0
+1. User clicks `Help cache this site`.
+2. The UI explains the fork and Pages setup.
+3. The user forks manually through GitHub.
+4. The user enables GitHub Pages on the fork.
+5. The user registers the Pages URL through an issue form or issue comment.
+6. GitHub Actions verifies the mirror.
+7. A maintainer controlled workflow updates `public/mirrors.json`.
+8. The mirror registry is signed.
 
-The **best automated future flow** is a very small GitHub App service. GitHub’s REST API can create forks, including with a new `name`, and can create or update GitHub Pages for the resulting repository. GitHub also has repository `fork` webhooks and `page_build` webhooks that can drive automation. But this path **requires a backend** because GitHub’s token flows still require a client secret, and GitHub explicitly warns that web applications should not leak that secret. A purely static site can read public GitHub data cross-origin, but it cannot safely do one-click authenticated writes to a user’s account without a server-held secret. citeturn21view0turn28view0turn26view0turn27view1turn30view0turn30view2
+GitHub supports issue comments through the REST API, and workflows can run on `issue_comment` events from the default branch.[^github-issue-comments][^github-actions-events]
 
-That distinction matters for the supporter story:
+Best future automated flow:
 
-### Recommended supporter workflow
+1. User clicks `Help cache this site`.
+2. A GitHub App creates a fork with a generated name.
+3. The GitHub App enables Pages.
+4. The GitHub App registers the Pages URL.
+5. Flareless verifies the mirror and updates the signed registry.
 
-1. The user clicks **Help cache this site** on the Flareless demo page.
-2. The page generates a **mirror identity** for UI purposes, such as `mirror_id = flr-20260528-ab12cd`.
-3. The page opens the upstream repo’s **Fork** action or a prebuilt instructions page.
-4. The user enables GitHub Pages on the fork, ideally using the same Pages workflow shipped by upstream.
-5. The user returns and submits the fork URL.
-6. Flareless verifies it and, if valid, publishes the mirror into the signed registry. citeturn3view0turn28view0turn16view0turn23view0
+This requires a backend because browser only static pages should not hold write tokens or client secrets.[^github-create-fork][^github-pages-api][^github-app-auth][^github-oauth]
 
-If the project later wants a generated _repository_ name as well as a generated mirror ID, GitHub’s fork API supports a `name` parameter for the fork, so that can be automated once a GitHub App exists. Until then, I would keep `mirror_id` and repo name separate. GitHub repository names are capped at 100 characters, and repo renames do not preserve project Pages URLs. citeturn21view0turn3view1turn33view0
+## Integrity and security model
 
-### Discovery options compared
+Correct trust statement:
 
-A **signed `mirrors.json` in the main repo** is the best runtime discovery mechanism because it is cheap to fetch, cacheable, easy to version, and easy to sign. A **GitHub API-based crawler** is useful for maintainer-side enrichment and verification, not for end-user failover selection. A **GitHub Actions workflow** can keep the registry fresh using `issue_comment`, `fork`, `page_build`, `repository_dispatch`, and scheduled checks. A **PR-based registration** also works, but it needs tighter workflow security because pull requests from forks are a sensitive area in GitHub Actions. DNS-based mirror lists are possible in theory, but I would keep them out of MVP because the rest of the system already has a simpler signed-static-files control plane. citeturn23view0turn26view0turn27view0turn16view2turn24view1
+> Mirrors are never trusted because they are mirrors. They are trusted only when they serve bytes that match the current official signed manifest.
 
-## Integrity and the security model
+Minimum viable security features:
 
-The correct trust statement for Flareless is:
+* Signed manifest with file hashes and sizes.
+* Signed mirror registry with active and revoked state.
+* Version pinning and highest seen persistence.
+* Expiration timestamps on both manifest and mirror registry.
+* Revocation support for mirrors and signing keys.
+* Rejection reasons for hash mismatch, expiry, stale version, or signature failure.
 
-> **Mirrors are never trusted because they are mirrors. They are trusted only when they serve bytes that match the current official signed manifest.**
+The JSON should use deterministic serialization before signing. RFC 8785 defines JSON Canonicalization Scheme for stable cryptographic JSON serialization. Ed25519 is a good fit for signatures, and browser verification can use Web Crypto where supported.[^rfc8785][^rfc8032][^subtlecrypto]
 
-That model should be enforced mechanically. The official build pipeline should hash every asset, generate a canonical JSON payload, sign it, and publish it with the site. The client should pin a root public key, verify the signature, verify expiration, compare version numbers against the highest version it has previously trusted, and then verify every fetched file by hash. This is exactly the pattern TUF uses to defend against rollback, freeze, fast-forward, and mix-and-match attacks. citeturn8view2turn8view6turn19view0turn19view3turn19view4
+A full TUF deployment uses separate roles for root, timestamp, snapshot, and targets. Flareless does not need full TUF on day one. A TUF lite model is enough for the first prototype:
 
-For the JSON format itself, I recommend using a deterministic serialization scheme before signing. RFC 8785 defines the JSON Canonicalization Scheme specifically so JSON can be transformed into a stable, hashable byte representation suitable for cryptographic operations. For signatures, Ed25519 is a good fit: the EdDSA specification documents it, and MDN documents `SubtleCrypto.verify()` with `Ed25519` among the supported algorithms. citeturn9search0turn9search1turn8view5
+* Offline root key pinned in clients.
+* Online signing key for the current manifest and mirror registry.
+* Short expirations.
+* Strict monotonic version checks.
+* Documented key rotation and emergency revocation.[^tuf]
 
-The minimum viable security features should be:
+Avoid letting the site register or run arbitrary service worker code from supporter provided URLs. Service workers are powerful request interceptors and must remain same origin and controlled by trusted project code.[^service-worker-register]
 
-- **Signed manifest** with file hashes and sizes.
-- **Signed mirror registry** with active/revoked state.
-- **Version pinning** and “highest seen” persistence.
-- **Expiration timestamps** on both manifest and mirror registry.
-- **Revocation support** for mirrors and signing keys.
-- **Rejection logging** for hash mismatch, expiry, stale version, or signature failure. citeturn19view3turn19view4turn8view6
+Avoid volunteer custom domains in the first release. Custom domain ownership adds takeover and verification risk that is not needed for the first mirror mode.[^github-custom-domain][^github-domain-verification]
 
-A full TUF deployment would use separate root, timestamp, snapshot, and targets roles. I would not require that on day one. For Flareless, a **TUF-lite** model is the best tradeoff:
-
-- an **offline root key** pinned in clients,
-- an **online signing key** in a sign-only vault or other protected signer for the current manifest and mirror registry,
-- short expirations,
-- strict monotonic version checks,
-- documented key rotation and emergency revocation. citeturn31view0turn8view6turn19view3turn19view4
-
-GitHub’s own guidance supports strong key hygiene. GitHub App private keys are described as the single most valuable secret for an app; GitHub recommends vault storage and even sign-only handling so the raw key cannot be read back. That same discipline should be applied to the Flareless manifest signer, whether or not the project uses a GitHub App. citeturn31view0
-
-One thing I would **explicitly avoid** is letting the site register or run arbitrary service-worker code from supporter-provided URLs. MDN warns that registering service workers from untrusted URLs is a serious XSS and request-interception risk, and registration also requires same-origin anyway. Flareless should verify content, not execute mirror-controlled bootstrap logic. citeturn18view0
-
-I would also avoid volunteer custom domains in the first release. GitHub specifically recommends custom-domain verification to prevent takeover attacks, and custom domain ownership adds operational complexity that is not needed for a mirror. The safest first version uses the default `github.io` Pages URLs for volunteer mirrors. citeturn1view7turn32search1
-
-### Example signed manifest
-
-The exact schema can evolve, but this is the shape I would use:
+## Example signed manifest
 
 ```json
 {
@@ -214,11 +222,6 @@ The exact schema can evolve, but this is the shape I would use:
         "sha256": "8c84...9a",
         "bytes": 58192,
         "content_type": "application/javascript"
-      },
-      "/assets/app.2f0b77.css": {
-        "sha256": "fa11...13",
-        "bytes": 8123,
-        "content_type": "text/css"
       }
     }
   },
@@ -231,7 +234,7 @@ The exact schema can evolve, but this is the shape I would use:
 }
 ```
 
-### Example signed mirror registry
+## Example signed mirror registry
 
 ```json
 {
@@ -264,114 +267,178 @@ The exact schema can evolve, but this is the shape I would use:
 }
 ```
 
-## GitHub Pages realities and the operational constraints that matter
+## GitHub Pages realities and operational constraints
 
-There are real GitHub Pages limits here, and Flareless should design around them rather than hand-wave them away. GitHub documents a **1 GB published site size limit**, a **10 minute deployment timeout**, and a **soft bandwidth limit of 100 GB per month** per Pages site. GitHub also says Pages may not be appropriate for some high-bandwidth uses. That means fork mirrors are a credible resilience layer for medium-size public static sites, but they are not a free infinite CDN. citeturn1view0turn11search1
+GitHub Pages has real limits. GitHub documents limits for site size, deployment time, and bandwidth guidance. That means fork mirrors are credible for medium size public static sites, but they are not a free infinite CDN.[^github-pages-limits]
 
-Repository shape matters too. GitHub recommends small objects in Git repositories and enforces a 100 MB single-object ceiling; it also recommends a 1 GB source-repository limit for Pages. If Flareless wants volunteer fork mirrors to work smoothly, the mirrorable site should keep giant binaries, videos, and other bulky assets out of Git where possible. citeturn1view0turn1view5
+Repository shape matters too. GitHub recommends keeping repositories and large files under documented limits. Mirrorable sites should avoid giant binaries, videos, and bulky generated assets inside Git where possible.[^github-large-files]
 
-The best Pages publishing mode for this project is a **custom GitHub Actions workflow**, not a simple branch build. GitHub Pages documents that the 10-builds-per-hour soft limit does **not** apply when you build and publish with a custom Pages workflow, and GitHub also documents a common trap: commits pushed by a workflow using `GITHUB_TOKEN` do not trigger a branch-based Pages build. That makes the workflow-based Pages path the cleaner and less surprising standard for official and volunteer mirrors alike. Public-repo Actions usage for Pages is also free. citeturn1view0turn3view0turn4view1
+The cleanest Pages publishing mode is a custom GitHub Actions workflow. GitHub documents Pages deployment through Actions, and this is easier to standardize for official and volunteer mirrors than relying on branch based Pages behavior.[^github-pages-api][^github-pages-actions]
 
-Registry automation on GitHub Actions is feasible, but it also has limits. Scheduled workflows can run as often as every five minutes, but GitHub warns that scheduled workflows can be delayed around periods of high load, especially at the start of the hour, and public-repository scheduled workflows are automatically disabled after 60 days without repository activity. That means health checks are fine as a convenience layer, but they should not be your only source of truth. Signed registry files and last-known-good client cache still matter. citeturn23view3
+Registry automation through GitHub Actions is feasible, but scheduled workflows can be delayed or disabled after inactivity in public repositories. Health checks are useful, but signed registry files and last known good client cache still matter.[^github-schedule]
 
-GitHub’s APIs are helpful, but they should be used in the right place. `List forks` is paginated and capped at 100 results per page, public unauthenticated REST use is 60 requests per hour per IP, authenticated user and app flows are higher, and GitHub also enforces secondary rate limits. That makes the API a good **maintainer-side** discovery mechanism and a weak **client-side** failover mechanism. citeturn1view2turn15view0turn15view3turn6view2
+Workflow security matters. GitHub warns that `pull_request_target` runs in the trusted base context, and GitHub recommends least privilege for `GITHUB_TOKEN`. For Flareless, registry verification workflows should parse data only, avoid executing untrusted fork code, and pin reused actions where practical.[^github-pr-target][^github-token-permissions]
 
-Workflow security deserves special care. GitHub explicitly warns that `pull_request_target` runs in the context of the trusted base branch and can run regardless of fork-approval settings, while workflows from public forks can otherwise require approval. GitHub also recommends least privilege for `GITHUB_TOKEN`, pinning third-party actions to a full commit SHA, and using CODEOWNERS to monitor changes to workflow files. For Flareless, that means registry verification workflows should parse **data only**, avoid checking out or executing untrusted fork code, and pin all reused actions to immutable SHAs. citeturn24view1turn24view0turn25view0turn25view2
+Do not depend on custom response headers from public GitHub Pages. GitHub Enterprise Server documents Pages response header customization, but public GitHub Pages does not clearly expose equivalent arbitrary header control. Use content hashing, signed manifests, and top level mirror navigation instead.[^github-enterprise-pages-headers]
 
-One area that remains incomplete in the public GitHub Pages documentation reviewed here is **arbitrary response-header control on github.com-hosted Pages**. GitHub Enterprise Server explicitly documents configurable Pages response headers, but that does not establish equivalent header control for public GitHub Pages. Because of that uncertainty, I would not make the Flareless architecture depend on custom mirror response headers for CORS or cache behavior; use content hashing, signed manifests, and top-level mirror navigation instead. citeturn34search5turn34search8turn17view1
+## Implementation roadmap
 
-## Implementation roadmap, repo changes, demo design, and the final recommendation
+### Phase 1: Local static mirror simulation
 
-### Recommended technical design
+Build the site twice under two local origins, generate a signed manifest, and prove that the recovery loader can verify mirror bytes before rendering.
 
-The design I would actually build is:
+### Phase 2: Manual fork mirror registration
 
-1. **Portable static build** with relative asset paths and a mirror-safe base path.
-2. **Recovery loader** with a pinned root public key.
-3. **Signed manifest** and **signed mirror registry** generated at build or release time.
-4. **Official recovery endpoints** hosted separately from the primary CDN.
-5. **Volunteer mirrors on GitHub Pages** serving the same static build.
-6. **Client-side verification** of signature, version, expiry, and file hashes.
-7. **Top-level redirect to a verified mirror** when official endpoints fail.
-8. **Optional WebRTC/device mesh** only after the rest works and only with separate signaling. citeturn4view0turn18view0turn20search2turn20search3turn8view2
+Add a `Help cache this site` UI, publish instructions, and accept mirror registrations through an issue form or issue comment.
 
-### Minimal viable implementation plan
+### Phase 3: Signed manifest and hash verification
 
-**Phase 1** should be a local static mirror simulation. Build the site twice under two origins, generate a signed manifest, and prove that the recovery loader can verify the mirror bytes before rendering. This validates the security model before any GitHub-specific work.
+Add manifest generation, signing, verification helpers, and tests for valid and invalid mirror content.
 
-**Phase 2** should be manual fork registration. Add a “Help cache this site” UI, publish instructions, and accept mirror registrations through an issue form or issue comment. Let GitHub Actions verify and update a static registry from the main repo. That keeps the system nearly backendless while avoiding unsafe browser auth hacks. citeturn16view0turn23view0turn30view2
+### Phase 4: Automatic mirror health checks
 
-**Phase 3** should add signed manifest and hash verification everywhere. This is the point where mirrors stop being “just copies” and become verified caches.
+Add scheduled Actions checks that probe each registered mirror and update health state through a maintainer controlled path.
 
-**Phase 4** should add automatic mirror health checks. Use scheduled Actions plus the Pages API and HTTP probes, but keep the signed registry authoritative. Avoid top-of-hour schedules and assume some delay or occasional gaps. citeturn14view0turn14view1turn23view3
+### Phase 5: GitHub Actions registry update
 
-**Phase 5** should add GitHub Actions registry updates. Trigger on issue comments, manual dispatch, and maintainer-approved changes. If you later add a GitHub App backend, also use `fork` and `page_build` events for smoother automation. citeturn26view0turn27view1turn16view2
+Parse issue submissions, verify mirror URLs, and update `public/mirrors.json` through a reviewed workflow.
 
-**Phase 6** should add the Flareless demo experience: route health panel, mirror registration simulation, signed-asset badges, rejected-mirror view, and failover animation.
+### Phase 6: Demo UI
 
-**Phase 7** should make device cache mesh optional. WebRTC data channels can carry arbitrary peer-to-peer data, but they still need signaling and NAT traversal orchestration, so they belong after the GitHub Pages mirror path is already working. citeturn20search0turn20search2turn20search3
+Add route health, mirror registration simulation, signed asset badges, rejected mirror view, and failover animation.
 
-### Repo files to add
+### Phase 7: Optional device cache mesh integration
 
-I would add these files or directories to the Flareless repo:
+Add device mesh only after the GitHub Pages mirror path works and only with separate signaling.
 
-- `docs/volunteer-fork-cache.md`
-- `docs/device-cache-mesh.md`
-- `docs/security-model.md`
-- `public/manifest.flareless.json`
-- `public/mirrors.json`
-- `public/recovery/index.html`
-- `src/recovery/recovery-loader.ts`
-- `src/recovery/verify-manifest.ts`
-- `src/recovery/select-route.ts`
-- `scripts/build-manifest.mjs`
-- `scripts/sign-manifest.mjs`
-- `scripts/verify-mirror.mjs`
-- `scripts/update-mirror-registry.mjs`
-- `.github/workflows/update-mirrors.yml`
-- `.github/workflows/verify-registration.yml`
-- `.github/workflows/health-checks.yml`
-- `tests/mirror-verification.test.mjs`
-- `tests/failover-order.test.mjs`
+## Recommended repo files
 
-The repository should also lock down sensitive paths with CODEOWNERS and treat workflow files as high-risk configuration, consistent with GitHub’s workflow security guidance. citeturn25view2
+* `docs/future-work/volunteer-fork-cache.md`
+* `docs/device-cache-mesh.md`
+* `docs/security-model.md`
+* `public/manifest.flareless.json`
+* `public/mirrors.json`
+* `public/recovery/index.html`
+* `src/recovery/recovery-loader.js`
+* `src/recovery/verify-manifest.js`
+* `src/recovery/select-route.js`
+* `scripts/build-manifest.mjs`
+* `scripts/sign-manifest.mjs`
+* `scripts/verify-mirror.mjs`
+* `scripts/update-mirror-registry.mjs`
+* `.github/workflows/update-mirrors.yml`
+* `.github/workflows/verify-registration.yml`
+* `.github/workflows/health-checks.yml`
+* `tests/mirror-verification.test.mjs`
+* `tests/failover-order.test.mjs`
 
-### Demo design for the Flareless page
+## Demo design
 
-The demo should show the mechanism honestly and visually:
+The demo should show:
 
-- a **Help cache this site** panel with a generated example mirror identity,
-- a **manual registration simulation** that shows the GitHub fork and Pages steps,
-- a **route health panel** listing primary CDN, secondary CDN, official Pages, volunteer mirrors, and mesh,
-- a **hash verified** badge next to served assets,
-- a **rejected mirror** example that demonstrates a hash mismatch,
-- a **failover animation** that shows official endpoints failing and a verified mirror taking over,
-- a **returning user / new user** distinction so the bootstrap problem is understandable. citeturn8view0turn18view0turn8view2
+* `Help cache this site` panel.
+* Generated example mirror identity.
+* Manual registration simulation.
+* Route health panel.
+* Hash verified badge.
+* Rejected mirror example.
+* Failover animation.
+* Returning user versus first time user explanation.
 
-### Honest wording and what not to overclaim
+Suggested visible route labels:
 
-Safe wording would be along these lines:
+```text
+Primary CDN: timeout
+Secondary CDN: 503
+Official GitHub Pages: reachable
+Volunteer mirror: verified
+Rejected mirror: hash mismatch
+Device mesh: not enabled
+Origin fallback: blocked by policy
+```
 
-> “Flareless can use verified volunteer GitHub Pages mirrors to improve availability for public static sites. Mirrors are not trusted by default; they are only used when they match the official signed manifest.” citeturn1view1turn8view2
+## Honest wording
 
-> “Returning visitors may recover through cached recovery assets; first-time visitors still need at least one reachable bootstrap endpoint.” citeturn8view0turn18view0
+Safe wording:
 
-> “This is an availability layer for static content, not a replacement for dynamic origin infrastructure.” citeturn4view1
+> Flareless can use verified volunteer GitHub Pages mirrors to improve availability for public static sites. Mirrors are not trusted by default; they are only used when they match the official signed manifest.
 
-I would avoid claims like:
+Safe wording:
 
-- “This makes the site unstoppable.”
-- “No backend is required at all.”
-- “Any supporter fork can automatically keep the site online.”
-- “This is decentralized hosting.”
-- “GitHub Pages becomes a peer-to-peer mesh.”
+> Returning visitors may recover through cached recovery assets; first time visitors still need at least one reachable bootstrap endpoint.
 
-Those statements overclaim. The accurate version is that Pages mirrors can improve resilience, but only within GitHub’s bandwidth/build limits, only for static assets, only with a trusted bootstrap path, and only with strong signed-manifest verification. citeturn1view0turn11search1turn30view2turn8view2
+Safe wording:
 
-### Open questions and limitations
+> This is an availability layer for static content, not a replacement for dynamic origin infrastructure.
 
-Two issues deserve explicit follow-up. First, the reviewed public GitHub documentation does not clearly document arbitrary response-header control for github.com-hosted Pages, so the design should continue to avoid dependence on custom Pages headers. Second, if Flareless eventually wants fully automated one-click mirror onboarding, it will need to decide whether introducing a minimal GitHub App service is worth the operational and key-management burden. GitHub’s auth flows and app-key handling requirements make that a real architecture choice, not just a UI choice. citeturn34search5turn34search8turn30view0turn31view0
+Avoid these claims:
 
-### Final recommendation
+* This makes the site unstoppable.
+* No backend is required at all.
+* Any supporter fork can automatically keep the site online.
+* This is decentralized hosting.
+* GitHub Pages becomes a peer to peer mesh.
 
-This should become an **experimental optional Flareless feature**, not a core default mode yet. The right first release is a **GitHub Pages mirror mode with signed manifests, a signed mirror registry, a recovery loader, and manual registration**. If users respond well and the operational burden remains low, Flareless can add a minimal GitHub App backend later for one-click fork creation and Pages enrollment. What should become core over time is the **verification model** and **failover orchestration**. What should remain optional, at least initially, is the volunteer mirror network itself and any device-cache mesh on top of it. citeturn21view0turn28view0turn30view2turn8view2
+## Final recommendation
+
+This should become an experimental optional Flareless feature, not a core default mode yet. The right first release is GitHub Pages mirror mode with signed manifests, a signed mirror registry, a recovery loader, and manual registration. If users respond well and the operational burden remains low, Flareless can add a minimal GitHub App backend later for one click fork creation and Pages enrollment. What should become core over time is the verification model and failover orchestration. What should remain optional, at least initially, is the volunteer mirror network itself and any device cache mesh on top of it.
+
+## References
+
+[^github-pages]: GitHub Docs, About GitHub Pages. https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages
+
+[^github-pages-api]: GitHub REST API Docs, Pages. https://docs.github.com/en/rest/pages
+
+[^github-pages-actions]: GitHub Docs, Configuring a publishing source for your GitHub Pages site. https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
+
+[^github-pages-limits]: GitHub Docs, GitHub Pages limits. https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages
+
+[^github-create-fork]: GitHub REST API Docs, Create a fork. https://docs.github.com/en/rest/repos/forks#create-a-fork
+
+[^github-list-forks]: GitHub REST API Docs, List forks. https://docs.github.com/en/rest/repos/forks#list-forks
+
+[^github-rate-limits]: GitHub REST API Docs, Rate limits for the REST API. https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+
+[^github-issue-comments]: GitHub REST API Docs, Issue comments. https://docs.github.com/en/rest/issues/comments
+
+[^github-actions-events]: GitHub Docs, Events that trigger workflows. https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+
+[^github-app-auth]: GitHub Docs, About authentication with a GitHub App. https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app
+
+[^github-oauth]: GitHub Docs, Authorizing OAuth apps. https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
+
+[^github-rename-repo]: GitHub Docs, Renaming a repository. https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository
+
+[^github-custom-domain]: GitHub Docs, Managing a custom domain for your GitHub Pages site. https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site
+
+[^github-domain-verification]: GitHub Docs, Verifying your custom domain for GitHub Pages. https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/verifying-your-custom-domain-for-github-pages
+
+[^github-large-files]: GitHub Docs, About large files on GitHub. https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github
+
+[^github-schedule]: GitHub Docs, Events that trigger workflows, schedule. https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+
+[^github-pr-target]: GitHub Docs, Events that trigger workflows, pull_request_target. https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+
+[^github-token-permissions]: GitHub Docs, Automatic token authentication. https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication
+
+[^github-enterprise-pages-headers]: GitHub Enterprise Server Docs, Customizing HTTP response headers for GitHub Pages. https://docs.github.com/en/enterprise-server/admin/configuring-settings/configuring-github-pages-for-your-enterprise/configuring-http-response-headers-for-github-pages
+
+[^service-workers]: MDN, Service Worker API. https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
+
+[^service-worker-register]: MDN, ServiceWorkerContainer.register(). https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register
+
+[^sri]: MDN, Subresource Integrity. https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
+
+[^cors]: MDN, Cross Origin Resource Sharing. https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS
+
+[^subtlecrypto]: MDN, SubtleCrypto.verify(). https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/verify
+
+[^webrtc-datachannel]: MDN, RTCDataChannel. https://developer.mozilla.org/en-US/docs/Web/API/RTCDataChannel
+
+[^webrtc-signaling]: MDN, WebRTC signaling and video calling. https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Signaling_and_video_calling
+
+[^tuf]: The Update Framework, Specification. https://theupdateframework.github.io/specification/latest/
+
+[^rfc8785]: RFC 8785, JSON Canonicalization Scheme. https://www.rfc-editor.org/rfc/rfc8785
+
+[^rfc8032]: RFC 8032, Edwards Curve Digital Signature Algorithm. https://www.rfc-editor.org/rfc/rfc8032
