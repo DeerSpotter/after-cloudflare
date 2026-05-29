@@ -2,6 +2,7 @@
   <a href="#runtime-prototype" title="Read the runtime prototype track"><img src="https://img.shields.io/badge/runtime-active-2ea44f" alt="runtime active"></a><br>
   <a href="#peer-assisted-delivery" title="Read the peer assisted delivery track"><img src="https://img.shields.io/badge/peer-open-6f42c1" alt="peer open"></a><br>
   <a href="#manifest-and-content-integrity" title="Read the manifest and content integrity track"><img src="https://img.shields.io/badge/manifest-integrity-f9c513" alt="manifest integrity"></a><br>
+  <a href="#volunteer-fork-cache" title="Read the volunteer fork cache future work track"><img src="https://img.shields.io/badge/fork%20cache-future%20work-6f42c1" alt="fork cache future work"></a><br>
   <a href="#security-and-abuse-controls" title="Read the security and abuse controls track"><img src="https://img.shields.io/badge/security-policy-d73a49" alt="security policy"></a>
 </p>
 
@@ -19,11 +20,13 @@ flowchart LR
     R[Runtime prototype] --> F[Provider failover]
     F --> M[Manifest integrity]
     M --> P[Peer assisted delivery]
+    P --> V[Volunteer fork cache]
     P --> H[Distributed health checks]
     H --> D[Deployment examples]
     S[Security and abuse controls] -. review .-> R
     S -. review .-> M
     S -. review .-> P
+    S -. review .-> V
 ```
 
 ## Current tracks
@@ -151,6 +154,33 @@ Advanced tasks:
 * Add provider specific block detection.
 * Add retry budgets and circuit breaker behavior.
 
+### Volunteer fork cache
+
+Path: `docs/future-work/volunteer-fork-cache.md`
+
+Purpose: Explore an optional recovery layer where supporter GitHub forks publish verified static mirrors through GitHub Pages.
+
+Input: Official signed manifest, signed mirror registry, immutable public assets, volunteer fork Pages URLs, and mirror health state.
+
+Output: Verified recovery routes, rejected mirror reasons, mirror health state, and demo behavior for public static site recovery.
+
+Status: Future work research added. Implementation is not started.
+
+Beginner tasks:
+
+* Add a `Help cache this site` demo panel.
+* Add a fake volunteer fork name generator.
+* Add example `manifest.flareless.json` and `mirrors.json` files.
+
+Advanced tasks:
+
+* Add signed mirror registry verification.
+* Add `scripts/verify-mirror.mjs` for GitHub Pages mirrors.
+* Add scheduled mirror health checks.
+
+> [!WARNING]
+> Volunteer fork mirrors should never be trusted directly. They should only serve public static assets that match the official signed manifest.
+
 ### Security and abuse controls
 
 Paths: `SECURITY.md`, future `src/security/`
@@ -186,8 +216,9 @@ Advanced tasks:
 4. Implement signed manifests and content verification.
 5. Harden provider failover.
 6. Build WebRTC chunk transport.
-7. Add distributed health checks.
-8. Add production deployment examples.
+7. Prototype volunteer fork cache verification.
+8. Add distributed health checks.
+9. Add production deployment examples.
 
 ## Definition of ready
 
