@@ -116,6 +116,44 @@ micro CDN status does not claim real peer transfer or detached signatures
 compatibility endpoints remain available
 ```
 
+## Guided experience
+
+The GUI includes a menu bar and playback controls so a new user can walk through the story without knowing the internals first.
+
+Menu groups:
+
+```text
+File
+Scenarios
+Actions
+View
+Help
+```
+
+The top control bar includes:
+
+```text
+Run scenario
+Start auto tour
+Stop
+Reset state
+```
+
+The auto tour walks through the main story:
+
+```text
+healthy route
+HTTP status failover
+blocked provider failover
+all providers failed
+origin fallback blocked by policy
+micro CDN approved content
+micro CDN no healthy node
+operator/audit review
+```
+
+The progress bar shows the current tour position. The tour switches tabs automatically so screenshots and screen recordings tell the story clearly.
+
 ## Scenarios
 
 The first release includes these scenarios:
