@@ -1,0 +1,73 @@
+{
+  "id": "microcdn-hello",
+  "title": "Micro CDN approved content route",
+  "summary": "The optional micro CDN routes approved public content by readable path while the local cache remains hash verified.",
+  "routeKey": "route:/mcdn/demo/hello.txt",
+  "policyId": "microcdn-public-approved",
+  "microCdn": {
+    "publicPath": "/mcdn/demo/hello.txt",
+    "contentId": "demo/hello.txt",
+    "namespace": "demo",
+    "displayPath": "hello.txt",
+    "sha256": "6abf984b2dbbd2235cc76d0231faab579115ece25039a8f84bf3d29fd147dae7",
+    "cacheModel": "sha256-addressed-local-cache",
+    "implementedNow": [
+      "approval manifests",
+      "reason codes",
+      "local hash verification",
+      "approved public content route"
+    ],
+    "notBuiltYet": [
+      "real peer chunk transfer",
+      "detached manifest signatures",
+      "verified peer bytes"
+    ],
+    "routeResult": {
+      "outcome": "node-selected",
+      "reason": "NODE_ADVERTISES_CONTENT",
+      "selectedNode": {
+        "nodeId": "node-001",
+        "reasonCodes": [
+          "NODE_REGISTERED",
+          "NODE_HEALTHY",
+          "NODE_ENABLED",
+          "NODE_ONLINE",
+          "NODE_ADVERTISES_CONTENT"
+        ]
+      }
+    }
+  },
+  "providers": [
+    {
+      "name": "node-001",
+      "status": "healthy",
+      "latencyMs": 35,
+      "lastResult": "NODE_ADVERTISES_CONTENT",
+      "healthScope": "microcdn"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "node-001",
+      "result": "NODE_ADVERTISES_CONTENT"
+    }
+  ],
+  "failurePoints": [],
+  "selectedFallback": null,
+  "finalStatus": {
+    "outcome": "node-selected",
+    "statusCode": 200,
+    "provider": "node-001",
+    "reason": "NODE_ADVERTISES_CONTENT"
+  },
+  "agent": {
+    "severity": "info",
+    "summary": "Approved public content is available through a healthy local micro CDN node. The readable path maps to hash verified local cache bytes.",
+    "action": "OBSERVE_ONLY",
+    "reasonCodes": [
+      "CONTENT_APPROVED",
+      "HASH_AVAILABLE",
+      "NODE_ADVERTISES_CONTENT"
+    ]
+  }
+}
