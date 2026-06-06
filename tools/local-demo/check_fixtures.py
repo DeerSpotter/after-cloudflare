@@ -16,9 +16,13 @@ ROOT = Path(__file__).resolve().parent
 SCENARIO_DIR = ROOT / "scenarios"
 REQUIRED_SCENARIO_IDS = {
     "healthy-route",
+    "http-status-failover",
     "timeout-failover",
     "blocked-provider",
     "all-providers-failed",
+    "origin-blocked",
+    "microcdn-hello",
+    "microcdn-no-healthy-node",
 }
 REQUIRED_ROUTE_TRACE_KEYS = {
     "requestId",
@@ -45,7 +49,9 @@ def main() -> int:
     for scenario in scenarios.values():
         errors.extend(check_scenario(scenario))
         errors.extend(check_materialized_route_trace(scenario))
+        errors.extend(assert_no_forbidden_true_claims(scenario))
     errors.extend(check_golden_chain(scenarios.get("blocked-provider")))
+    errors.extend(check_microcdn_no_healthy_node(scenarios.get("microcdn-no-healthy-node")))
 
     if errors:
         print("local demo fixture check failed:")
@@ -138,6 +144,17 @@ def check_golden_chain(scenario: dict[str, Any] | None) -> list[str]:
     if actual != expected:
         return ["blocked-provider: golden chain must be cdn-a timeout, cdn-b 429, cdn-c success"]
     return []
+
+
+def check_microcdn_no_healthy_node(scenario: dict[str, Any] | None) -> list[str]:
+    if scenario is None:
+        return ["microcdn-no-healthy-node: missing scenario"]
+    text = json.dumps(scenario)
+    errors: list[str] = []
+    for required in ["NODE_DISABLED", "NODE_OFFLINE", "NO_HEALTHY_NODE"]:
+        if required not in text:
+            errors.append(f"microcdn-no-healthy-node: missing {required}")
+    return errors
 
 
 def assert_no_forbidden_true_claims(payload: dict[str, Any]) -> list[str]:
