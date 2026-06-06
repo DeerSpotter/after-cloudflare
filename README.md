@@ -44,6 +44,7 @@ This table is intentionally near the top so the repo stays honest about what is 
 | Route trace object | Implemented |
 | Agent route trace analysis | Implemented |
 | Agent recommendation report | Implemented |
+| Local demo console | Implemented |
 | Static public demo | Implemented as simulation |
 | Optional micro CDN trust model | MVP implemented |
 | Approval manifest schema | Implemented |
@@ -67,6 +68,7 @@ The mobile demo is static and requires no worker, backend, or paid hosting. It s
 ## Start Here
 
 * [Quickstart](./QUICKSTART.md) explains how to run the local runtime, tests, and simulator.
+* [Local Demo Console](./tools/local-demo/README.md) explains the Python server and Tkinter client for route failure, agent recommendation, operator approval, and audit logging.
 * [Mobile Demo](./demo/) contains a no hosting mobile browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
 * [Honest Feedback](./HONEST_FEEDBACK.md) is the blunt current project review, including what is strong, what is overclaimed, and what should happen next.
 * [Failure Point Tracking](./docs/failure-point-tracking.md) explains how Flareless records where a route broke before agent recommendations or fallback decisions.
