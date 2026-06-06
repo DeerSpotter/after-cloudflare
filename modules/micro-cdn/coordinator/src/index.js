@@ -115,6 +115,151 @@ function normalizeContentKey(value) {
   return cleanPathSegment(text);
 }
 
+function safeApprovalId(contentId) {
+  return `appr_${String(contentId || 'content').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80)}`;
+}
+
+function isValidNamespace(value) {
+  return /^[a-z0-9][a-z0-9-]{0,62}$/.test(String(value || ''));
+}
+
+function isValidPublicPath(value) {
+  const text = String(value || '');
+  if (!text.startsWith('/mcdn/')) {
+    return false;
+  }
+  if (text.includes('..') || text.includes('\\')) {
+    return false;
+  }
+  return /^\/mcdn\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(text);
+}
+
+function isValidSha256(value) {
+  return /^[a-f0-9]{64}$/.test(String(value || ''));
+}
+
+function isValidHttpUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isValidContentType(value) {
+  return /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*(; ?[A-Za-z0-9_-]+=[A-Za-z0-9._+-]+)*$/.test(String(value || ''));
+}
+
+function isExpiredApproval(content, nowMs = Date.now()) {
+  if (!requiredString(content.expiresAt)) {
+    return false;
+  }
+  const expiresAtMs = Date.parse(content.expiresAt);
+  return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+}
+
+function normalizeLoadedContent(content) {
+  const namespace = normalizeNamespace(content.namespace || 'default');
+  const contentId = normalizeContentKey(content.contentId || content.publicPath || `${namespace}/${content.displayPath || 'asset'}`);
+  const displayPath = normalizeDisplayPath(content.displayPath || content.publicPath || contentId, contentId);
+  const publicPath = content.publicPath || buildPublicPath(namespace, displayPath);
+  const originUrl = content.originUrl || content.url || '';
+  return {
+    ...content,
+    approvalId: content.approvalId || safeApprovalId(contentId),
+    issuer: content.issuer || 'legacy-coordinator',
+    contentId,
+    namespace,
+    displayPath,
+    publicPath,
+    sha256: requiredString(content.sha256) ? String(content.sha256).toLowerCase() : '',
+    url: content.url || originUrl,
+    originUrl,
+    sizeBytes: Number.isInteger(content.sizeBytes) && content.sizeBytes > 0 ? content.sizeBytes : null,
+    contentType: requiredString(content.contentType) ? content.contentType : 'application/octet-stream',
+    signatureAlgorithm: content.signatureAlgorithm || 'none'
+  };
+}
+
+function buildApprovalFromInput(body, existing) {
+  const errors = [];
+  if (!requiredString(body.contentId)) {
+    errors.push('CONTENT_NOT_APPROVED');
+  }
+  if (!requiredString(body.sha256)) {
+    errors.push('INVALID_SHA256');
+  }
+  if (!requiredString(body.url) && !requiredString(body.originUrl)) {
+    errors.push('INVALID_ORIGIN_URL');
+  }
+
+  const contentId = normalizeContentKey(body.contentId);
+  const namespace = normalizeNamespace(body.namespace || 'default');
+  const displayPath = normalizeDisplayPath(body.displayPath || body.publicPath || body.contentId, body.contentId || 'asset');
+  const publicPath = body.publicPath ? `/${cleanPathSegment(body.publicPath)}` : buildPublicPath(namespace, displayPath);
+  const sha256 = requiredString(body.sha256) ? String(body.sha256).toLowerCase() : '';
+  const originUrl = body.originUrl || body.url || '';
+  const createdAt = requiredString(body.createdAt) ? body.createdAt : existing?.createdAt || nowIso();
+  const expiresAt = requiredString(body.expiresAt)
+    ? body.expiresAt
+    : new Date(Date.now() + (Number.isFinite(body.maxAgeSeconds) ? body.maxAgeSeconds : 86400) * 1000).toISOString();
+  const sizeBytes = Number.isInteger(body.sizeBytes) && body.sizeBytes > 0 ? body.sizeBytes : null;
+  const contentType = requiredString(body.contentType) ? body.contentType : 'application/octet-stream';
+
+  if (!requiredString(contentId)) {
+    errors.push('INVALID_PUBLIC_PATH');
+  }
+  if (!isValidNamespace(namespace)) {
+    errors.push('INVALID_NAMESPACE');
+  }
+  if (!isValidPublicPath(publicPath)) {
+    errors.push('INVALID_PUBLIC_PATH');
+  }
+  if (!isValidSha256(sha256)) {
+    errors.push('INVALID_SHA256');
+  }
+  if (!isValidHttpUrl(originUrl)) {
+    errors.push('INVALID_ORIGIN_URL');
+  }
+  if (body.sizeBytes !== undefined && sizeBytes === null) {
+    errors.push('INVALID_SIZE');
+  }
+  if (!isValidContentType(contentType)) {
+    errors.push('INVALID_CONTENT_TYPE');
+  }
+  if (!Number.isFinite(Date.parse(createdAt))) {
+    errors.push('INVALID_CREATED_AT');
+  }
+  if (!Number.isFinite(Date.parse(expiresAt))) {
+    errors.push('INVALID_EXPIRES_AT');
+  } else if (Date.parse(expiresAt) <= Date.now()) {
+    errors.push('APPROVAL_EXPIRED');
+  }
+
+  const content = {
+    approvalId: requiredString(body.approvalId) ? body.approvalId : existing?.approvalId || safeApprovalId(contentId),
+    issuer: requiredString(body.issuer) ? body.issuer : existing?.issuer || 'local-coordinator',
+    contentId,
+    namespace,
+    displayPath,
+    publicPath,
+    sha256,
+    url: body.url || originUrl,
+    originUrl,
+    sizeBytes,
+    contentType,
+    maxAgeSeconds: Number.isFinite(body.maxAgeSeconds) ? body.maxAgeSeconds : 86400,
+    createdAt,
+    expiresAt,
+    updatedAt: nowIso(),
+    signatureAlgorithm: body.signatureAlgorithm || 'none',
+    signature: body.signature
+  };
+
+  return { ok: errors.length === 0, errors: [...new Set(errors)], content };
+}
+
 function findContent(contentKey) {
   const normalized = normalizeContentKey(contentKey);
   if (!requiredString(normalized)) {
@@ -136,7 +281,7 @@ function findContent(contentKey) {
 
 function snapshotState() {
   return {
-    version: 3,
+    version: 4,
     savedAt: nowIso(),
     nodes: [...nodes.values()],
     approvedContent: [...approvedContent.values()],
@@ -198,17 +343,9 @@ async function loadState() {
 
     if (Array.isArray(state.approvedContent)) {
       for (const content of state.approvedContent) {
-        if (requiredString(content.contentId)) {
-          const namespace = normalizeNamespace(content.namespace || 'default');
-          const displayPath = normalizeDisplayPath(content.displayPath || content.contentId, content.contentId);
-          const contentId = normalizeContentKey(content.contentId);
-          approvedContent.set(contentId, {
-            ...content,
-            contentId,
-            namespace,
-            displayPath,
-            publicPath: content.publicPath || buildPublicPath(namespace, displayPath)
-          });
+        const normalized = normalizeLoadedContent(content);
+        if (requiredString(normalized.contentId)) {
+          approvedContent.set(normalized.contentId, normalized);
         }
       }
     }
@@ -308,7 +445,16 @@ function buildNodeCandidate(node, content, index, options) {
     successRate: Number(nodeSuccessRate(node).toFixed(4)),
     timeoutRate: Number(nodeTimeoutRate(node).toFixed(4)),
     firstByteP95Ms: numberOrDefault(node.firstByteP95Ms, null),
-    firstByteAvgMs: numberOrDefault(node.firstByteAvgMs, null)
+    firstByteAvgMs: numberOrDefault(node.firstByteAvgMs, null),
+    reasonCodes: [
+      'NODE_REGISTERED',
+      'NODE_HEALTHY',
+      'NODE_ENABLED',
+      'NODE_ONLINE',
+      'NODE_ADVERTISES_CONTENT',
+      'NODE_WITHIN_DEADLINE',
+      'NODE_SCORE_ACCEPTED'
+    ]
   };
 }
 
@@ -333,32 +479,43 @@ function routeOptionsFromUrl(url) {
 function buildRoutePlan(content, options) {
   cleanupStaleNodes();
   const nodeSet = contentNodes.get(content.contentId);
+  const rejectedCandidates = [];
   if (!nodeSet || nodeSet.size === 0) {
-    return [];
+    return { candidates: [], rejectedCandidates };
   }
 
   const eligibleNodes = [];
   for (const nodeId of nodeSet) {
     const node = nodes.get(nodeId);
-    if (!node || !node.microCdnEnabled || node.online === false) {
+    if (!node) {
+      rejectedCandidates.push({ nodeId, reasonCodes: ['NODE_STALE'] });
+      continue;
+    }
+    if (node.microCdnEnabled !== true) {
+      rejectedCandidates.push({ nodeId, reasonCodes: ['NODE_DISABLED'] });
+      continue;
+    }
+    if (node.online === false) {
+      rejectedCandidates.push({ nodeId, reasonCodes: ['NODE_OFFLINE'] });
       continue;
     }
     eligibleNodes.push(node);
   }
 
   eligibleNodes.sort((left, right) => nodeQualityScore(left) - nodeQualityScore(right));
-  return eligibleNodes
+  const candidates = eligibleNodes
     .slice(0, options.candidateLimit)
     .map((node, index) => buildNodeCandidate(node, content, index, options));
+  return { candidates, rejectedCandidates };
 }
 
 function pickNodeForContent(contentId) {
   const content = findContent(contentId);
-  if (!content) {
+  if (!content || isExpiredApproval(content)) {
     return null;
   }
 
-  const candidates = buildRoutePlan(content, {
+  const { candidates } = buildRoutePlan(content, {
     routingMode: 'hedged-deadline',
     deadlineMs: defaultDeadlineMs,
     coordinatorBudgetMs: defaultCoordinatorBudgetMs,
@@ -482,34 +639,24 @@ async function handleNodeReport(req, res) {
 
 async function handleApproveContent(req, res) {
   const body = await readJson(req);
-  if (!requiredString(body.contentId) || !requiredString(body.sha256) || !requiredString(body.url)) {
-    sendJson(res, 400, { error: 'contentId, sha256, and url are required' });
+  const contentId = normalizeContentKey(body.contentId);
+  const existing = contentId ? approvedContent.get(contentId) : null;
+  const approval = buildApprovalFromInput(body, existing);
+  if (!approval.ok) {
+    sendJson(res, 400, {
+      error: 'approval manifest is invalid',
+      reasonCodes: approval.errors
+    });
     return;
   }
 
-  const namespace = normalizeNamespace(body.namespace || 'default');
-  const displayPath = normalizeDisplayPath(body.displayPath || body.contentId, body.contentId);
-  const contentId = normalizeContentKey(body.contentId);
-  const publicPath = body.publicPath ? `/${cleanPathSegment(body.publicPath)}` : buildPublicPath(namespace, displayPath);
-  const existing = approvedContent.get(contentId);
-  const content = {
-    contentId,
-    namespace,
-    displayPath,
-    publicPath,
-    sha256: body.sha256.toLowerCase(),
-    url: body.url,
-    originUrl: body.originUrl || body.url,
-    sizeBytes: Number.isFinite(body.sizeBytes) ? body.sizeBytes : null,
-    contentType: requiredString(body.contentType) ? body.contentType : 'application/octet-stream',
-    maxAgeSeconds: Number.isFinite(body.maxAgeSeconds) ? body.maxAgeSeconds : 86400,
-    createdAt: existing ? existing.createdAt : nowIso(),
-    updatedAt: nowIso()
-  };
-
-  approvedContent.set(content.contentId, content);
+  approvedContent.set(approval.content.contentId, approval.content);
   await queueSaveState();
-  sendJson(res, 200, { ok: true, content });
+  sendJson(res, 200, {
+    ok: true,
+    content: approval.content,
+    reasonCodes: ['CONTENT_APPROVED', 'APPROVAL_NOT_EXPIRED', 'HASH_AVAILABLE']
+  });
 }
 
 async function handleAdvertiseContent(req, res) {
@@ -526,7 +673,11 @@ async function handleAdvertiseContent(req, res) {
 
   const content = findContent(body.contentId);
   if (!content) {
-    sendJson(res, 403, { error: 'content is not approved' });
+    sendJson(res, 403, { error: 'content is not approved', reasonCodes: ['CONTENT_NOT_APPROVED'] });
+    return;
+  }
+  if (isExpiredApproval(content)) {
+    sendJson(res, 403, { error: 'content approval is expired', reasonCodes: ['APPROVAL_EXPIRED'] });
     return;
   }
 
@@ -543,7 +694,13 @@ async function handleAdvertiseContent(req, res) {
   node.lastSeen = nowIso();
 
   await queueSaveState();
-  sendJson(res, 200, { ok: true, contentId: content.contentId, publicPath: content.publicPath, nodeId: body.nodeId });
+  sendJson(res, 200, {
+    ok: true,
+    contentId: content.contentId,
+    publicPath: content.publicPath,
+    nodeId: body.nodeId,
+    reasonCodes: ['CONTENT_APPROVED', 'APPROVAL_NOT_EXPIRED', 'NODE_ADVERTISES_CONTENT']
+  });
 }
 
 async function handleUnadvertiseContent(req, res) {
@@ -585,24 +742,48 @@ function handleRoute(url, res) {
 
   const content = findContent(requested);
   if (!content) {
-    sendJson(res, 404, { error: 'content is not approved' });
+    sendJson(res, 404, { error: 'content is not approved', reasonCodes: ['CONTENT_NOT_APPROVED'] });
+    return;
+  }
+  if (isExpiredApproval(content)) {
+    sendJson(res, 403, { error: 'content approval is expired', reasonCodes: ['APPROVAL_EXPIRED'] });
     return;
   }
 
   const options = routeOptionsFromUrl(url);
-  const candidates = buildRoutePlan(content, options);
+  const { candidates, rejectedCandidates } = buildRoutePlan(content, options);
   if (candidates.length === 0) {
-    sendJson(res, 404, { error: 'no healthy node currently serves this content' });
+    sendJson(res, 404, {
+      error: 'no healthy node currently serves this content',
+      reasonCodes: ['CONTENT_APPROVED', 'APPROVAL_NOT_EXPIRED', 'HASH_AVAILABLE', 'NO_HEALTHY_NODE'],
+      rejectedCandidates
+    });
     return;
   }
 
   const primary = candidates[0];
+  const reasonCodes = [
+    'CONTENT_APPROVED',
+    'APPROVAL_NOT_EXPIRED',
+    'HASH_AVAILABLE',
+    'NODE_POOL_AVAILABLE',
+    candidates.length > 1 ? 'BACKUP_SELECTED' : 'LOWEST_SCORE'
+  ];
+  if (requiredString(content.originUrl)) {
+    reasonCodes.push('ORIGIN_FALLBACK_AVAILABLE');
+  }
+
   sendJson(res, 200, {
     contentId: content.contentId,
+    approvalId: content.approvalId,
+    issuer: content.issuer,
+    expiresAt: content.expiresAt,
     namespace: content.namespace,
     displayPath: content.displayPath,
     publicPath: content.publicPath,
     sha256: content.sha256,
+    sizeBytes: content.sizeBytes,
+    contentType: content.contentType,
     routingMode: options.routingMode,
     deadlineMs: options.deadlineMs,
     coordinatorBudgetMs: options.coordinatorBudgetMs,
@@ -611,14 +792,17 @@ function handleRoute(url, res) {
     selectedNode: {
       nodeId: primary.nodeId,
       region: primary.region,
-      downloadUrl: primary.downloadUrl
+      downloadUrl: primary.downloadUrl,
+      reasonCodes: primary.reasonCodes
     },
     candidates,
+    rejectedCandidates,
     originFallback: {
       enabled: requiredString(content.originUrl),
       raceAfterMs: options.originRaceAfterMs,
       url: content.originUrl || content.url || null
-    }
+    },
+    reasonCodes
   });
 }
 
@@ -636,6 +820,12 @@ function handleStatus(res) {
       backupRaceAfterMs: defaultBackupRaceAfterMs,
       originRaceAfterMs: defaultOriginRaceAfterMs,
       candidateLimit: defaultCandidateLimit
+    },
+    trustModel: {
+      approvalManifestVersion: 1,
+      untrustedTransport: true,
+      reasonCodes: true,
+      expiredApprovalsRejected: true
     },
     nodes: [...nodes.values()].map(node => ({
       nodeId: node.nodeId,
