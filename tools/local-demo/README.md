@@ -84,6 +84,37 @@ The server listens at:
 http://127.0.0.1:8765
 ```
 
+## Test it
+
+From the repository root:
+
+```bash
+python tools/local-demo/run_tests.py
+```
+
+The test runner performs these checks:
+
+```text
+compile all local demo Python files
+validate scenario fixture contracts
+run unittest API and lifecycle coverage
+```
+
+The CI workflow also runs this command in the `local-demo` job.
+
+The checks prove:
+
+```text
+routeTrace top-level shape stays stable
+the golden provider chain remains cdn-a timeout, cdn-b 429, cdn-c success
+scenario fixtures load cleanly
+pending recommendations can be created
+approval and rejection require an operator
+audit events are appended
+invalid double decisions are rejected
+micro CDN status does not claim real peer transfer or detached signatures
+```
+
 ## Scenarios
 
 The first release includes four scenarios:
