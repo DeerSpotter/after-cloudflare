@@ -1,0 +1,72 @@
+{
+  "id": "http-status-failover",
+  "title": "HTTP status failover",
+  "summary": "The primary provider returns a block status and the route succeeds through the next provider.",
+  "routeKey": "route:/video/example/v1",
+  "policyId": "video-public-peer-first",
+  "providers": [
+    {
+      "name": "cdn-a",
+      "status": "blocked",
+      "latencyMs": 88,
+      "lastResult": "PROVIDER_BLOCKED_429",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-b",
+      "status": "healthy",
+      "latencyMs": 64,
+      "lastResult": "PROVIDER_SUCCESS",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-c",
+      "status": "standby",
+      "latencyMs": 95,
+      "lastResult": "NOT_USED",
+      "healthScope": "route"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "cdn-a",
+      "result": "PROVIDER_BLOCKED_429"
+    },
+    {
+      "provider": "cdn-b",
+      "result": "PROVIDER_SUCCESS"
+    }
+  ],
+  "failurePoints": [
+    {
+      "sequence": 1,
+      "stage": "PROVIDER_BLOCKED_STATUS",
+      "code": "PROVIDER_BLOCKED_429",
+      "provider": "cdn-a",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    }
+  ],
+  "selectedFallback": null,
+  "finalStatus": {
+    "outcome": "provider-success",
+    "statusCode": 200,
+    "provider": "cdn-b",
+    "reason": "PROVIDER_BLOCKED_FAILOVER"
+  },
+  "agent": {
+    "severity": "warning",
+    "summary": "cdn-a returned a block response. Keep failover route scoped and do not make a global provider decision.",
+    "action": "COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK",
+    "reasonCodes": [
+      "PROVIDER_BLOCK_RESPONSE_DETECTED",
+      "BACKUP_PROVIDER_SUCCEEDED",
+      "ROUTE_SCOPE_RETAINED"
+    ]
+  }
+}
