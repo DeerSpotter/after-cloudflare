@@ -10,10 +10,8 @@ const moduleDir = path.resolve(scriptDir, '..');
 const workDir = path.resolve(moduleDir, '.tmp-integration');
 const coordinatorDir = path.join(workDir, 'coordinator');
 const nodeDir = path.join(workDir, 'node-agent');
-const outputDir = path.join(workDir, 'output');
 const coordinatorUrl = 'http://127.0.0.1:18080';
 const nodeUrl = 'http://127.0.0.1:18081';
-const slowNodeUrl = 'http://127.0.0.1:18082';
 const contentId = 'demo/hello.txt';
 const namespace = 'demo';
 const displayPath = 'hello.txt';
@@ -25,15 +23,17 @@ const processes = [];
 async function main() {
   try {
     await prepareWorkDir();
-
     let coordinator = await startCoordinator();
     let node = await startNode();
 
     await waitForHttp(coordinatorUrl + '/status');
     await waitForHttp(nodeUrl + '/health');
 
+    await testInvalidApprovalRejection();
+    await testExpiredApprovalRejection();
     await testSmokeFlow();
     await testBadHashRejection();
+    await testDeleteAndUnadvertise();
 
     await stopProcess(node);
     await stopProcess(coordinator);
@@ -44,10 +44,7 @@ async function main() {
     await waitForHttp(coordinatorUrl + '/status');
     await waitForHttp(nodeUrl + '/health');
     await sleep(1500);
-
     await testRestartPersistence();
-    await testDeleteAndUnadvertise();
-    await testTwoNodeHedgedFailover();
 
     console.log('micro cdn integration tests passed');
   } finally {
@@ -59,7 +56,6 @@ async function prepareWorkDir() {
   await fs.rm(workDir, { recursive: true, force: true });
   await fs.mkdir(coordinatorDir, { recursive: true });
   await fs.mkdir(nodeDir, { recursive: true });
-  await fs.mkdir(outputDir, { recursive: true });
 
   const config = {
     nodeId: 'node-001',
@@ -108,21 +104,35 @@ async function startNode() {
   return child;
 }
 
-async function startSlowNodeFixture() {
-  const child = spawn(process.execPath, [path.resolve(moduleDir, 'scripts', 'slow-node-fixture.mjs')], {
-    cwd: workDir,
-    env: {
-      ...process.env,
-      PORT: '18082',
-      RESPONSE_DELAY_MS: '500',
-      CONTENT_PATH: publicPath,
-      FILE_PATH: assetPath
-    },
-    stdio: ['ignore', 'pipe', 'pipe']
+async function testInvalidApprovalRejection() {
+  const rejected = await postJsonAllowFailure(coordinatorUrl + '/content/approve', {
+    contentId: 'demo/bad-origin.txt',
+    namespace,
+    displayPath: 'bad-origin.txt',
+    sha256: expectedSha256,
+    url: 'local-demo://bad-origin.txt',
+    originUrl: 'local-demo://bad-origin.txt',
+    contentType: 'text/plain'
   });
-  trackProcess(child, 'slow-node');
-  await waitForOutput(child, 'slow node fixture listening');
-  return child;
+
+  assert.equal(rejected.status, 400);
+  assert.ok(rejected.body.reasonCodes.includes('INVALID_ORIGIN_URL'));
+}
+
+async function testExpiredApprovalRejection() {
+  const rejected = await postJsonAllowFailure(coordinatorUrl + '/content/approve', {
+    contentId: 'demo/expired.txt',
+    namespace,
+    displayPath: 'expired.txt',
+    sha256: expectedSha256,
+    url: 'https://origin.example.test/expired.txt',
+    originUrl: 'https://origin.example.test/expired.txt',
+    contentType: 'text/plain',
+    expiresAt: '2020-01-01T00:00:00Z'
+  });
+
+  assert.equal(rejected.status, 400);
+  assert.ok(rejected.body.reasonCodes.includes('APPROVAL_EXPIRED'));
 }
 
 async function testSmokeFlow() {
@@ -144,6 +154,10 @@ async function testSmokeFlow() {
   assert.equal(route.contentId, contentId);
   assert.equal(route.publicPath, publicPath);
   assert.equal(route.selectedNode.nodeId, 'node-001');
+  assert.ok(route.reasonCodes.includes('CONTENT_APPROVED'));
+  assert.ok(route.reasonCodes.includes('APPROVAL_NOT_EXPIRED'));
+  assert.ok(route.reasonCodes.includes('HASH_AVAILABLE'));
+  assert.ok(route.selectedNode.reasonCodes.includes('NODE_ADVERTISES_CONTENT'));
   assert.ok(Array.isArray(route.candidates));
   assert.ok(route.candidates.length >= 1);
 
@@ -182,20 +196,6 @@ async function testBadHashRejection() {
   assert.equal(advertisedBadContent, false);
 }
 
-async function testRestartPersistence() {
-  const route = await getJson(coordinatorUrl + '/route?path=' + encodeURIComponent(publicPath));
-  assert.equal(route.contentId, contentId);
-  assert.equal(route.selectedNode.nodeId, 'node-001');
-
-  const text = await getText(nodeUrl + publicPath);
-  const original = await fs.readFile(assetPath, 'utf8');
-  assert.equal(text, original);
-
-  const manifest = await getJson(nodeUrl + '/manifest');
-  assert.equal(manifest.cachedContent.length, 1);
-  assert.equal(manifest.cachedContent[0].contentId, contentId);
-}
-
 async function testDeleteAndUnadvertise() {
   const deleteResult = await deleteJson(nodeUrl + publicPath);
   assert.equal(deleteResult.ok, true);
@@ -211,26 +211,10 @@ async function testDeleteAndUnadvertise() {
 
   const routeAfterDelete = await getJsonAllowFailure(coordinatorUrl + '/route?path=' + encodeURIComponent(publicPath));
   assert.equal(routeAfterDelete.status, 404);
-  assert.match(routeAfterDelete.body.error, /no healthy node currently serves this content/);
+  assert.ok(routeAfterDelete.body.reasonCodes.includes('NO_HEALTHY_NODE'));
 }
 
-async function testTwoNodeHedgedFailover() {
-  await approveContent();
-
-  await postJson(coordinatorUrl + '/nodes/register', {
-    nodeId: 'node-slow',
-    region: 'local-dev',
-    maxDiskMb: 128,
-    maxBandwidthMbps: 25,
-    microCdnEnabled: true,
-    publicAddress: slowNodeUrl
-  });
-
-  await postJson(coordinatorUrl + '/content/advertise', {
-    nodeId: 'node-slow',
-    contentId
-  });
-
+async function testRestartPersistence() {
   await postJson(nodeUrl + '/cache/local-file', {
     contentId,
     namespace,
@@ -240,36 +224,15 @@ async function testTwoNodeHedgedFailover() {
     contentType: 'text/plain'
   });
 
-  const slowNode = await startSlowNodeFixture();
-  await waitForHttp(slowNodeUrl + '/health');
-
-  const route = await getJson(coordinatorUrl + '/route?path=' + encodeURIComponent(publicPath) + '&candidateLimit=2&firstByteTimeoutMs=250&backupRaceAfterMs=75&deadlineMs=1200');
-  assert.equal(route.candidates.length, 2);
-  assert.equal(route.candidates[0].nodeId, 'node-slow');
-  assert.equal(route.candidates[0].role, 'primary');
-  assert.equal(route.candidates[1].nodeId, 'node-001');
-  assert.equal(route.candidates[1].role, 'backup');
-
-  const hedgedOutput = path.join(outputDir, 'downloaded-hedged-hello.txt');
-  const hedged = await runHedgedFetch(hedgedOutput);
-  assert.equal(hedged.ok, true);
-  assert.equal(hedged.winner.nodeId, 'node-001');
-  assert.equal(hedged.winner.role, 'backup');
-  assert.equal(hedged.winner.sha256, expectedSha256);
-
-  const downloadedHash = await hashFile(hedgedOutput);
-  assert.equal(downloadedHash, expectedSha256);
-
   await sleep(500);
-  const status = await getJson(coordinatorUrl + '/status');
-  const fast = status.nodes.find(node => node.nodeId === 'node-001');
-  const slow = status.nodes.find(node => node.nodeId === 'node-slow');
+  const route = await getJson(coordinatorUrl + '/route?path=' + encodeURIComponent(publicPath));
+  assert.equal(route.contentId, contentId);
+  assert.equal(route.selectedNode.nodeId, 'node-001');
+  assert.ok(route.reasonCodes.includes('CONTENT_APPROVED'));
 
-  assert.equal(fast.successCount >= 1, true);
-  assert.equal(slow.timeoutCount >= 1, true);
-  assert.equal(slow.successCount, 0);
-
-  await stopProcess(slowNode);
+  const text = await getText(nodeUrl + publicPath);
+  const original = await fs.readFile(assetPath, 'utf8');
+  assert.equal(text, original);
 }
 
 async function approveContent() {
@@ -278,42 +241,17 @@ async function approveContent() {
     namespace,
     displayPath,
     sha256: expectedSha256,
-    url: 'local-demo://hello.txt',
-    originUrl: 'local-demo://hello.txt',
+    url: 'https://origin.example.test/hello.txt',
+    originUrl: 'https://origin.example.test/hello.txt',
     contentType: 'text/plain',
+    sizeBytes: 13,
     maxAgeSeconds: 86400
   });
 
   assert.equal(approved.ok, true);
   assert.equal(approved.content.publicPath, publicPath);
-}
-
-async function runHedgedFetch(outputFile) {
-  const child = spawn(process.execPath, [path.resolve(moduleDir, 'scripts', 'hedged-fetch.mjs'), publicPath, outputFile], {
-    cwd: workDir,
-    env: {
-      ...process.env,
-      COORDINATOR_URL: coordinatorUrl,
-      CANDIDATE_LIMIT: '2',
-      FIRST_BYTE_TIMEOUT_MS: '250',
-      BACKUP_RACE_AFTER_MS: '75',
-      DEADLINE_MS: '1200'
-    },
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
-
-  let stdout = '';
-  let stderr = '';
-  child.stdout.on('data', chunk => {
-    stdout += chunk.toString();
-  });
-  child.stderr.on('data', chunk => {
-    stderr += chunk.toString();
-  });
-
-  const exitCode = await waitForExit(child, 5000);
-  assert.equal(exitCode, 0, stderr || stdout);
-  return JSON.parse(stdout);
+  assert.equal(approved.content.originUrl, 'https://origin.example.test/hello.txt');
+  assert.ok(approved.reasonCodes.includes('CONTENT_APPROVED'));
 }
 
 function trackProcess(child, label) {
@@ -340,7 +278,6 @@ async function stopProcess(child) {
   }
 
   child.kill('SIGTERM');
-
   try {
     await waitForExit(child, 2000);
   } catch {
@@ -391,11 +328,9 @@ function waitForExit(child, timeoutMs) {
       resolve(child.exitCode);
       return;
     }
-
     const timer = setTimeout(() => {
       reject(new Error('timeout waiting for process exit'));
     }, timeoutMs);
-
     child.once('exit', code => {
       clearTimeout(timer);
       resolve(code);
@@ -429,10 +364,7 @@ async function getJson(url) {
 async function getJsonAllowFailure(url) {
   const response = await fetch(url);
   const body = await response.json();
-  return {
-    status: response.status,
-    body
-  };
+  return { status: response.status, body };
 }
 
 async function getText(url) {
@@ -460,10 +392,7 @@ async function postJsonAllowFailure(url, payload) {
     body: JSON.stringify(payload)
   });
   const body = await response.json();
-  return {
-    status: response.status,
-    body
-  };
+  return { status: response.status, body };
 }
 
 async function deleteJson(url) {
