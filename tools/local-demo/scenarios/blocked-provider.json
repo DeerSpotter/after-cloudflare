@@ -1,0 +1,90 @@
+{
+  "id": "blocked-provider",
+  "title": "Blocked provider failover",
+  "summary": "One provider times out, another returns a block response, and the route succeeds through the remaining provider.",
+  "routeKey": "route:/video/example/v1",
+  "policyId": "video-public-peer-first",
+  "providers": [
+    {
+      "name": "cdn-a",
+      "status": "timeout",
+      "latencyMs": 1200,
+      "lastResult": "PROVIDER_TIMEOUT",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-b",
+      "status": "blocked",
+      "latencyMs": 82,
+      "lastResult": "PROVIDER_BLOCKED_429",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-c",
+      "status": "healthy",
+      "latencyMs": 63,
+      "lastResult": "PROVIDER_SUCCESS",
+      "healthScope": "route"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "cdn-a",
+      "result": "PROVIDER_TIMEOUT"
+    },
+    {
+      "provider": "cdn-b",
+      "result": "PROVIDER_BLOCKED_429"
+    },
+    {
+      "provider": "cdn-c",
+      "result": "PROVIDER_SUCCESS"
+    }
+  ],
+  "failurePoints": [
+    {
+      "sequence": 1,
+      "stage": "PROVIDER_TIMEOUT",
+      "code": "PROVIDER_TIMEOUT",
+      "provider": "cdn-a",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    },
+    {
+      "sequence": 2,
+      "stage": "PROVIDER_BLOCKED_STATUS",
+      "code": "PROVIDER_BLOCKED_429",
+      "provider": "cdn-b",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    }
+  ],
+  "selectedFallback": null,
+  "finalStatus": {
+    "outcome": "provider-success",
+    "statusCode": 200,
+    "provider": "cdn-c",
+    "reason": "PROVIDER_TIMEOUT_FAILOVER"
+  },
+  "agent": {
+    "severity": "error",
+    "summary": "cdn-a timed out and cdn-b returned a block response. The route still succeeded through cdn-c.",
+    "action": "COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK",
+    "reasonCodes": [
+      "PROVIDER_TIMEOUT_DETECTED",
+      "PROVIDER_BLOCK_RESPONSE_DETECTED",
+      "BACKUP_PROVIDER_SUCCEEDED",
+      "ROUTE_SCOPE_RETAINED"
+    ]
+  }
+}
