@@ -12,6 +12,16 @@ from urllib.error import URLError, HTTPError
 from urllib.request import Request, urlopen
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8765"
+SCENARIO_IDS = [
+    "healthy-route",
+    "http-status-failover",
+    "timeout-failover",
+    "blocked-provider",
+    "all-providers-failed",
+    "origin-blocked",
+    "microcdn-hello",
+    "microcdn-no-healthy-node",
+]
 
 
 class ApiClient:
@@ -77,16 +87,18 @@ class FlarelessConsole(tk.Tk):
         self.scenario_box = ttk.Combobox(
             controls,
             textvariable=self.scenario_var,
-            values=["healthy-route", "timeout-failover", "blocked-provider", "all-providers-failed"],
-            width=28,
+            values=SCENARIO_IDS,
+            width=34,
             state="readonly",
         )
         self.scenario_box.pack(side=tk.LEFT, padx=6)
         ttk.Button(controls, text="Run scenario", command=self.run_scenario).pack(side=tk.LEFT, padx=4)
         ttk.Button(controls, text="Refresh", command=self.refresh_all).pack(side=tk.LEFT, padx=4)
+        ttk.Button(controls, text="Reset state", command=self.reset_state).pack(side=tk.LEFT, padx=4)
 
         self.tabs = ttk.Notebook(self)
         self.tabs.pack(expand=True, fill=tk.BOTH, padx=10, pady=(0, 10))
+        self.tabs.enable_traversal()
 
         self.dashboard_tab = ttk.Frame(self.tabs)
         self.providers_tab = ttk.Frame(self.tabs)
@@ -184,6 +196,13 @@ class FlarelessConsole(tk.Tk):
         except RuntimeError as exc:
             messagebox.showerror("Flareless local demo", str(exc))
 
+    def reset_state(self) -> None:
+        try:
+            self.api.post("/state/reset", {})
+            self.refresh_all()
+        except RuntimeError as exc:
+            messagebox.showerror("Flareless local demo", str(exc))
+
     def refresh_all(self) -> None:
         try:
             status = self.api.get("/status")
@@ -200,7 +219,7 @@ class FlarelessConsole(tk.Tk):
         self.status_var.set(f"Connected: {status.get('scenarioId')} | {status.get('routeReason')}")
         self.render_dashboard(status)
         self.render_providers(providers.get("providers", []))
-        self.render_json(self.trace_text, trace.get("routeTrace", {}))
+        self.render_json(self.trace_text, trace)
         self.render_recommendations(recommendations.get("recommendations", []))
         self.render_audit(audit.get("auditLog", []))
         self.render_json(self.micro_cdn_text, micro)
@@ -215,6 +234,7 @@ class FlarelessConsole(tk.Tk):
             f"Route status: {status.get('routeStatus')}",
             f"Active provider: {status.get('activeProvider') or 'none'}",
             f"Route reason: {status.get('routeReason')}",
+            f"Route traces: {status.get('routeTraces')}",
             f"Pending recommendations: {status.get('pendingRecommendations')}",
             f"Audit events: {status.get('auditEvents')}",
             "",
