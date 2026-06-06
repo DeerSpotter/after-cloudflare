@@ -1,0 +1,72 @@
+{
+  "id": "timeout-failover",
+  "title": "Provider timeout failover",
+  "summary": "The primary provider times out, the route tries the next ranked provider, and the request succeeds.",
+  "routeKey": "route:/video/example/v1",
+  "policyId": "video-public-peer-first",
+  "providers": [
+    {
+      "name": "cdn-a",
+      "status": "timeout",
+      "latencyMs": 1200,
+      "lastResult": "PROVIDER_TIMEOUT",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-b",
+      "status": "healthy",
+      "latencyMs": 72,
+      "lastResult": "PROVIDER_SUCCESS",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-c",
+      "status": "standby",
+      "latencyMs": 95,
+      "lastResult": "NOT_USED",
+      "healthScope": "route"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "cdn-a",
+      "result": "PROVIDER_TIMEOUT"
+    },
+    {
+      "provider": "cdn-b",
+      "result": "PROVIDER_SUCCESS"
+    }
+  ],
+  "failurePoints": [
+    {
+      "sequence": 1,
+      "stage": "PROVIDER_TIMEOUT",
+      "code": "PROVIDER_TIMEOUT",
+      "provider": "cdn-a",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    }
+  ],
+  "selectedFallback": null,
+  "finalStatus": {
+    "outcome": "provider-success",
+    "statusCode": 200,
+    "provider": "cdn-b",
+    "reason": "PROVIDER_TIMEOUT_FAILOVER"
+  },
+  "agent": {
+    "severity": "warning",
+    "summary": "cdn-a timed out. Keep the action route scoped and cool down only the failed provider.",
+    "action": "COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK",
+    "reasonCodes": [
+      "PROVIDER_TIMEOUT_DETECTED",
+      "BACKUP_PROVIDER_SUCCEEDED",
+      "ROUTE_SCOPE_RETAINED"
+    ]
+  }
+}
