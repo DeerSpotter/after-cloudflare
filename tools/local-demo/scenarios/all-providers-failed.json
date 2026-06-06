@@ -1,0 +1,102 @@
+{
+  "id": "all-providers-failed",
+  "title": "All providers failed",
+  "summary": "All CDN providers fail and policy chooses the safe fallback path.",
+  "routeKey": "route:/video/example/v1",
+  "policyId": "video-public-peer-first",
+  "providers": [
+    {
+      "name": "cdn-a",
+      "status": "timeout",
+      "latencyMs": 1200,
+      "lastResult": "PROVIDER_TIMEOUT",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-b",
+      "status": "blocked",
+      "latencyMs": 86,
+      "lastResult": "PROVIDER_BLOCKED_503",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-c",
+      "status": "error",
+      "latencyMs": 210,
+      "lastResult": "PROVIDER_FETCH_ERROR",
+      "healthScope": "route"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "cdn-a",
+      "result": "PROVIDER_TIMEOUT"
+    },
+    {
+      "provider": "cdn-b",
+      "result": "PROVIDER_BLOCKED_503"
+    },
+    {
+      "provider": "cdn-c",
+      "result": "PROVIDER_FETCH_ERROR"
+    }
+  ],
+  "failurePoints": [
+    {
+      "sequence": 1,
+      "stage": "PROVIDER_TIMEOUT",
+      "code": "PROVIDER_TIMEOUT",
+      "provider": "cdn-a",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    },
+    {
+      "sequence": 2,
+      "stage": "PROVIDER_BLOCKED_STATUS",
+      "code": "PROVIDER_BLOCKED_503",
+      "provider": "cdn-b",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    },
+    {
+      "sequence": 3,
+      "stage": "PROVIDER_FETCH_ERROR",
+      "code": "PROVIDER_FETCH_ERROR",
+      "provider": "cdn-c",
+      "routeKey": "route:/video/example/v1",
+      "chunkKey": "chunk:/video/example/v1/chunk-0001.m4s",
+      "policyId": "video-public-peer-first",
+      "fallbackAllowed": {
+        "peer": true,
+        "origin": false
+      }
+    }
+  ],
+  "selectedFallback": "peer-fallback",
+  "finalStatus": {
+    "outcome": "peer-fallback",
+    "statusCode": 503,
+    "provider": null,
+    "reason": "ALL_PROVIDERS_FAILED_PEER_FALLBACK_SELECTED"
+  },
+  "agent": {
+    "severity": "error",
+    "summary": "All CDN providers failed. Keep this scoped to the affected route and preserve the policy fallback boundary.",
+    "action": "COOLDOWN_FAILED_PROVIDERS_KEEP_PEER_FALLBACK",
+    "reasonCodes": [
+      "ALL_PROVIDERS_FAILED",
+      "PEER_FALLBACK_SELECTED",
+      "ROUTE_SCOPE_RETAINED"
+    ]
+  }
+}
