@@ -11,6 +11,15 @@ import { resolveSignalRoomName, createRoomInfo } from "./peer/roomPartition.js";
 import { createAgentCdnControlReport } from "./agent/cdnControl.js";
 import { createFailurePointTracker, formatFailurePointHeader } from "./agent/failurePointTracker.js";
 import { createAgentInputFromRouteTrace, createRouteTraceFromRouteResult, encodeRouteTraceHeader, readRouteTraceFromRequest } from "./agent/routeTrace.js";
+import {
+    approveRecommendation,
+    createRecommendationFromAgentReport,
+    getRecommendation,
+    lifecycleErrorResponse,
+    listAuditEvents,
+    listRecommendations,
+    rejectRecommendation
+} from "./agent/recommendationLifecycle.js";
 import { MgpSignalRoom } from "./peer/signalingObject.js";
 import { DemoPresenceRoom } from "./demo/presenceObject.js";
 
@@ -56,11 +65,68 @@ export default {
             return createAgentCdnControlResponse(request);
         }
 
+        if (url.pathname === "/agent/recommendations" || url.pathname.startsWith("/agent/recommendations/")) {
+            return createAgentRecommendationLifecycleResponse(request);
+        }
+
+        if (url.pathname === "/agent/audit-log") {
+            return Response.json({ auditLog: listAuditEvents() }, { headers: secureHeaders() });
+        }
+
         return await routeRequest(request);
     }
 };
 
 async function createAgentCdnControlResponse(request) {
+    const report = await createAgentReportFromRequest(request);
+    return Response.json(report, { headers: secureHeaders() });
+}
+
+async function createAgentRecommendationLifecycleResponse(request) {
+    const url = new URL(request.url);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const recommendationId = parts[2] || null;
+    const action = parts[3] || null;
+
+    try {
+        if (request.method === "POST" && url.pathname === "/agent/recommendations") {
+            const report = await createAgentReportFromRequest(request);
+            const recommendation = createRecommendationFromAgentReport(report);
+            return Response.json({ recommendation }, { status: 201, headers: secureHeaders() });
+        }
+
+        if (request.method === "GET" && url.pathname === "/agent/recommendations") {
+            return Response.json({ recommendations: listRecommendations() }, { headers: secureHeaders() });
+        }
+
+        if (request.method === "GET" && recommendationId && action === null) {
+            const recommendation = getRecommendation(recommendationId);
+            if (recommendation === null) {
+                return Response.json({ error: "Recommendation was not found.", code: "RECOMMENDATION_NOT_FOUND" }, { status: 404, headers: secureHeaders() });
+            }
+            return Response.json({ recommendation }, { headers: secureHeaders() });
+        }
+
+        if (request.method === "POST" && recommendationId && action === "approve") {
+            const decision = await readJsonBody(request);
+            const recommendation = approveRecommendation(recommendationId, decision);
+            return Response.json({ recommendation }, { headers: secureHeaders() });
+        }
+
+        if (request.method === "POST" && recommendationId && action === "reject") {
+            const decision = await readJsonBody(request);
+            const recommendation = rejectRecommendation(recommendationId, decision);
+            return Response.json({ recommendation }, { headers: secureHeaders() });
+        }
+    } catch (err) {
+        const errorResponse = lifecycleErrorResponse(err);
+        return Response.json(errorResponse.body, { status: errorResponse.status, headers: secureHeaders() });
+    }
+
+    return Response.json({ error: "not found" }, { status: 404, headers: secureHeaders() });
+}
+
+async function createAgentReportFromRequest(request) {
     const url = new URL(request.url);
     const routeScope = createRouteScope(request);
     const routePolicy = resolveRoutePolicy(routeScope);
@@ -75,9 +141,20 @@ async function createAgentCdnControlResponse(request) {
         }
         : createAgentInputFromRouteTrace(routeTrace, routePolicy, routeScope);
 
-    const report = createAgentCdnControlReport(reportInput);
+    return createAgentCdnControlReport(reportInput);
+}
 
-    return Response.json(report, { headers: secureHeaders() });
+async function readJsonBody(request) {
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.toLowerCase().includes("application/json") === false) {
+        return {};
+    }
+
+    try {
+        return await request.json();
+    } catch {
+        return {};
+    }
 }
 
 function parseAttempts(rawAttempts) {
