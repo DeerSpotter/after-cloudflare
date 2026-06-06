@@ -45,10 +45,14 @@ This table is intentionally near the top so the repo stays honest about what is 
 | Agent route trace analysis | Implemented |
 | Agent recommendation report | Implemented |
 | Static public demo | Implemented as simulation |
+| Optional micro CDN trust model | MVP implemented |
+| Approval manifest schema | Implemented |
+| Approval reason codes | Implemented |
 | Peer fallback | JSON fallback response only |
 | Real peer chunk transfer | Not implemented |
+| Hash verified micro CDN bytes | Implemented for local node cache |
 | Hash verified peer bytes | Not implemented |
-| Signed manifests | Not implemented |
+| Detached manifest signatures | Not implemented |
 | Distributed health checks | Not implemented |
 | Durable production control plane | Not implemented |
 
@@ -70,6 +74,7 @@ The mobile demo is static and requires no worker, backend, or paid hosting. It s
 * [Milestones](./MILESTONES.md) defines the build phases and exit criteria.
 * [Architecture](./ARCHITECTURE.md) explains request flow, provider selection, health, manifests, and peer fallback.
 * [Optional Micro CDN Module](./modules/micro-cdn/README.md) explains the optional community micro CDN prototype.
+* [Micro CDN Trust Model](./modules/micro-cdn/TRUST_MODEL.md) explains approval manifests, route reason codes, and untrusted node boundaries.
 * [Micro CDN Protocol Draft](./modules/micro-cdn/protocol.md) defines node registration, content registration, routing responses, and v1 constraints.
 * [Micro CDN Node Agent](./modules/micro-cdn/node-agent/README.md) explains how a node caches, serves, advertises, and deletes approved content.
 * [Micro CDN Coordinator](./modules/micro-cdn/coordinator/README.md) explains local coordinator state, endpoints, routing purpose, and current limits.
@@ -115,11 +120,17 @@ The current prototype supports:
 
 ```text
 approve public content path
+validate approval metadata
+reject malformed approval records
+reject expired approvals
 cache local file
 verify SHA256
 store cached bytes by hash
 advertise content to coordinator
 route by public /mcdn path
+return route reason codes
+return candidate reason codes
+reject disabled and offline nodes
 serve cached content from node
 persist coordinator state
 persist node manifest
@@ -297,7 +308,6 @@ If CDN A fails, everything fails.
 Good:
 
 ```text
-User
   |---- CDN A
   |---- CDN B
   |---- CDN C
