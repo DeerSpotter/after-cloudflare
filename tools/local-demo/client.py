@@ -22,6 +22,25 @@ SCENARIO_IDS = [
     "microcdn-hello",
     "microcdn-no-healthy-node",
 ]
+TOUR_STEPS = [
+    ("healthy-route", "Dashboard"),
+    ("http-status-failover", "Providers"),
+    ("blocked-provider", "Route Trace"),
+    ("all-providers-failed", "Agent Recommendation"),
+    ("origin-blocked", "Operator Approval"),
+    ("microcdn-hello", "Micro CDN Status"),
+    ("microcdn-no-healthy-node", "Micro CDN Status"),
+    ("timeout-failover", "Audit Log"),
+]
+TAB_NAMES = [
+    "Dashboard",
+    "Providers",
+    "Route Trace",
+    "Agent Recommendation",
+    "Operator Approval",
+    "Audit Log",
+    "Micro CDN Status",
+]
 
 
 class ApiClient:
@@ -65,14 +84,57 @@ class FlarelessConsole(tk.Tk):
         self.geometry("1180x760")
         self.minsize(1000, 680)
         self.recommendation_ids: list[str] = []
+        self.tour_running = False
+        self.tour_index = 0
 
         self.status_var = tk.StringVar(value="Disconnected")
         self.scenario_var = tk.StringVar(value="healthy-route")
         self.operator_var = tk.StringVar(value="local-operator")
         self.note_var = tk.StringVar(value="Approved for demo route only. Keep TTL short.")
+        self.playback_var = tk.DoubleVar(value=0)
+        self.tour_label_var = tk.StringVar(value="Tour idle")
 
+        self.build_menu()
         self.build_layout()
         self.refresh_all()
+
+    def build_menu(self) -> None:
+        menu_bar = tk.Menu(self)
+
+        file_menu = tk.Menu(menu_bar, tearoff=False)
+        file_menu.add_command(label="Reset state", command=self.reset_state)
+        file_menu.add_command(label="Refresh", command=self.refresh_all)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.destroy)
+        menu_bar.add_cascade(label="File", menu=file_menu)
+
+        scenario_menu = tk.Menu(menu_bar, tearoff=False)
+        for scenario_id in SCENARIO_IDS:
+            scenario_menu.add_command(
+                label=scenario_id,
+                command=lambda item=scenario_id: self.run_named_scenario(item),
+            )
+        menu_bar.add_cascade(label="Scenarios", menu=scenario_menu)
+
+        action_menu = tk.Menu(menu_bar, tearoff=False)
+        action_menu.add_command(label="Run selected scenario", command=self.run_scenario)
+        action_menu.add_command(label="Start auto tour", command=self.start_auto_tour)
+        action_menu.add_command(label="Stop auto tour", command=self.stop_auto_tour)
+        action_menu.add_separator()
+        action_menu.add_command(label="Approve latest pending recommendation", command=self.approve_latest)
+        action_menu.add_command(label="Reject latest pending recommendation", command=self.reject_latest)
+        menu_bar.add_cascade(label="Actions", menu=action_menu)
+
+        view_menu = tk.Menu(menu_bar, tearoff=False)
+        for index, tab_name in enumerate(TAB_NAMES):
+            view_menu.add_command(label=tab_name, command=lambda item=index: self.tabs.select(item))
+        menu_bar.add_cascade(label="View", menu=view_menu)
+
+        help_menu = tk.Menu(menu_bar, tearoff=False)
+        help_menu.add_command(label="About local demo", command=self.show_about)
+        menu_bar.add_cascade(label="Help", menu=help_menu)
+
+        self.config(menu=menu_bar)
 
     def build_layout(self) -> None:
         top = ttk.Frame(self, padding=10)
@@ -81,7 +143,7 @@ class FlarelessConsole(tk.Tk):
         ttk.Label(top, text="Flareless Local Demo Console", font=("TkDefaultFont", 16, "bold")).pack(side=tk.LEFT)
         ttk.Label(top, textvariable=self.status_var).pack(side=tk.RIGHT)
 
-        controls = ttk.Frame(self, padding=(10, 0, 10, 10))
+        controls = ttk.Frame(self, padding=(10, 0, 10, 6))
         controls.pack(fill=tk.X)
         ttk.Label(controls, text="Scenario").pack(side=tk.LEFT)
         self.scenario_box = ttk.Combobox(
@@ -93,8 +155,20 @@ class FlarelessConsole(tk.Tk):
         )
         self.scenario_box.pack(side=tk.LEFT, padx=6)
         ttk.Button(controls, text="Run scenario", command=self.run_scenario).pack(side=tk.LEFT, padx=4)
-        ttk.Button(controls, text="Refresh", command=self.refresh_all).pack(side=tk.LEFT, padx=4)
+        ttk.Button(controls, text="Start auto tour", command=self.start_auto_tour).pack(side=tk.LEFT, padx=4)
+        ttk.Button(controls, text="Stop", command=self.stop_auto_tour).pack(side=tk.LEFT, padx=4)
         ttk.Button(controls, text="Reset state", command=self.reset_state).pack(side=tk.LEFT, padx=4)
+
+        playback = ttk.Frame(self, padding=(10, 0, 10, 10))
+        playback.pack(fill=tk.X)
+        ttk.Label(playback, textvariable=self.tour_label_var, width=44).pack(side=tk.LEFT)
+        self.progress_bar = ttk.Progressbar(
+            playback,
+            variable=self.playback_var,
+            maximum=100,
+            mode="determinate",
+        )
+        self.progress_bar.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=8)
 
         self.tabs = ttk.Notebook(self)
         self.tabs.pack(expand=True, fill=tk.BOTH, padx=10, pady=(0, 10))
@@ -190,8 +264,12 @@ class FlarelessConsole(tk.Tk):
         self.micro_cdn_text.configure(state=tk.DISABLED)
 
     def run_scenario(self) -> None:
+        self.run_named_scenario(self.scenario_var.get())
+
+    def run_named_scenario(self, scenario_id: str) -> None:
         try:
-            self.api.post("/route/simulate", {"scenarioId": self.scenario_var.get()})
+            self.scenario_var.set(scenario_id)
+            self.api.post("/route/simulate", {"scenarioId": scenario_id})
             self.refresh_all()
         except RuntimeError as exc:
             messagebox.showerror("Flareless local demo", str(exc))
@@ -199,9 +277,49 @@ class FlarelessConsole(tk.Tk):
     def reset_state(self) -> None:
         try:
             self.api.post("/state/reset", {})
+            self.playback_var.set(0)
+            self.tour_label_var.set("Tour idle")
             self.refresh_all()
         except RuntimeError as exc:
             messagebox.showerror("Flareless local demo", str(exc))
+
+    def start_auto_tour(self) -> None:
+        if self.tour_running:
+            return
+        self.tour_running = True
+        self.tour_index = 0
+        self.playback_var.set(0)
+        self.tour_label_var.set("Starting auto tour")
+        self.after(150, self.play_next_tour_step)
+
+    def stop_auto_tour(self) -> None:
+        self.tour_running = False
+        self.tour_label_var.set("Tour stopped")
+
+    def play_next_tour_step(self) -> None:
+        if not self.tour_running:
+            return
+        if self.tour_index >= len(TOUR_STEPS):
+            self.tour_running = False
+            self.playback_var.set(100)
+            self.tour_label_var.set("Tour complete")
+            return
+
+        scenario_id, tab_name = TOUR_STEPS[self.tour_index]
+        self.run_named_scenario(scenario_id)
+        self.select_tab_by_name(tab_name)
+        self.tour_index += 1
+        percent = int((self.tour_index / len(TOUR_STEPS)) * 100)
+        self.playback_var.set(percent)
+        self.tour_label_var.set(f"Tour step {self.tour_index}/{len(TOUR_STEPS)}: {scenario_id} -> {tab_name}")
+        self.after(1400, self.play_next_tour_step)
+
+    def select_tab_by_name(self, tab_name: str) -> None:
+        try:
+            index = TAB_NAMES.index(tab_name)
+        except ValueError:
+            index = 0
+        self.tabs.select(index)
 
     def refresh_all(self) -> None:
         try:
@@ -315,6 +433,16 @@ class FlarelessConsole(tk.Tk):
             self.refresh_all()
         except RuntimeError as exc:
             messagebox.showerror("Flareless local demo", str(exc))
+
+    def show_about(self) -> None:
+        messagebox.showinfo(
+            "About Flareless Local Demo",
+            "Flareless Local Demo Console\n\n"
+            "A local prototype for failure aware route control, agent assisted recommendations, "
+            "operator approval, and audit logging.\n\n"
+            "It does not implement production peer transfer, distributed health checks, "
+            "detached signatures, or a durable production control plane.",
+        )
 
     def render_json(self, widget: tk.Text, data: Any) -> None:
         self.set_text(widget, json.dumps(data, indent=2))
