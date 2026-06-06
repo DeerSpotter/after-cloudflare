@@ -59,6 +59,28 @@ This table is intentionally near the top so the repo stays honest about what is 
 
 The strongest current identity is failure aware route control with agent assisted recommendations. The peer assisted delivery path is being prepared, but it is not yet a production peer CDN.
 
+## Local Demo Console
+
+The recommended first release experience is the local Python demo console.
+
+It starts a local server and opens a Tkinter client that shows provider health, route traces, generated `x-flareless-*` evidence headers, agent recommendations, operator approval or rejection, audit log entries, and micro CDN trust model boundaries.
+
+Run it from the repository root:
+
+```bash
+python tools/local-demo/run_demo.py
+```
+
+Test it from the repository root:
+
+```bash
+python tools/local-demo/run_tests.py
+```
+
+Read more:
+
+[tools/local-demo/README.md](./tools/local-demo/README.md)
+
 ## Mobile Demo
 
 [https://deerspotter.github.io/flareless/demo/](https://deerspotter.github.io/flareless/demo/)
@@ -164,12 +186,13 @@ This keeps the user facing path readable while making the hash the source of tru
 ## Current Build
 
 ```text
-src/          Worker runtime prototype
-services/     Go control plane scaffold
-public/       Browser side peer logic
-scripts/      Local runner and simulation tools
-tests/        Node test suite
-demo/         Static mobile browser demo
+src/                Worker runtime prototype
+services/           Go control plane scaffold
+public/             Browser side peer logic
+scripts/            Local runner and simulation tools
+tests/              Node test suite
+demo/               Static mobile browser demo
+tools/local-demo/   Python local demo console
 ```
 
 Local checks:
@@ -177,6 +200,10 @@ Local checks:
 ```bash
 npm install
 npm test
+npm run demo:timeout-failover
+npm run simulate -- --users=50 --segments=25 --requests=500 --seed=1337
+npm run test:micro-cdn
+python tools/local-demo/run_tests.py
 go test ./...
 go build ./...
 ```
