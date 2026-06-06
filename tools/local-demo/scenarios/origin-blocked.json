@@ -1,0 +1,102 @@
+{
+  "id": "origin-blocked",
+  "title": "Origin fallback blocked by policy",
+  "summary": "All providers fail, peer fallback is unavailable, and origin fallback is blocked by policy so the route fails closed safely.",
+  "routeKey": "route:/private/example/v1",
+  "policyId": "private-origin-blocked",
+  "providers": [
+    {
+      "name": "cdn-a",
+      "status": "timeout",
+      "latencyMs": 1200,
+      "lastResult": "PROVIDER_TIMEOUT",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-b",
+      "status": "blocked",
+      "latencyMs": 77,
+      "lastResult": "PROVIDER_BLOCKED_403",
+      "healthScope": "route"
+    },
+    {
+      "name": "cdn-c",
+      "status": "error",
+      "latencyMs": 210,
+      "lastResult": "PROVIDER_FETCH_ERROR",
+      "healthScope": "route"
+    }
+  ],
+  "attempts": [
+    {
+      "provider": "cdn-a",
+      "result": "PROVIDER_TIMEOUT"
+    },
+    {
+      "provider": "cdn-b",
+      "result": "PROVIDER_BLOCKED_403"
+    },
+    {
+      "provider": "cdn-c",
+      "result": "PROVIDER_FETCH_ERROR"
+    }
+  ],
+  "failurePoints": [
+    {
+      "sequence": 1,
+      "stage": "PROVIDER_TIMEOUT",
+      "code": "PROVIDER_TIMEOUT",
+      "provider": "cdn-a",
+      "routeKey": "route:/private/example/v1",
+      "chunkKey": "chunk:/private/example/v1/chunk-0001.m4s",
+      "policyId": "private-origin-blocked",
+      "fallbackAllowed": {
+        "peer": false,
+        "origin": false
+      }
+    },
+    {
+      "sequence": 2,
+      "stage": "PROVIDER_BLOCKED_STATUS",
+      "code": "PROVIDER_BLOCKED_403",
+      "provider": "cdn-b",
+      "routeKey": "route:/private/example/v1",
+      "chunkKey": "chunk:/private/example/v1/chunk-0001.m4s",
+      "policyId": "private-origin-blocked",
+      "fallbackAllowed": {
+        "peer": false,
+        "origin": false
+      }
+    },
+    {
+      "sequence": 3,
+      "stage": "FALLBACK_BLOCKED_BY_POLICY",
+      "code": "FALLBACK_BLOCKED_BY_POLICY",
+      "provider": null,
+      "routeKey": "route:/private/example/v1",
+      "chunkKey": "chunk:/private/example/v1/chunk-0001.m4s",
+      "policyId": "private-origin-blocked",
+      "fallbackAllowed": {
+        "peer": false,
+        "origin": false
+      }
+    }
+  ],
+  "selectedFallback": "fallback-blocked",
+  "finalStatus": {
+    "outcome": "fallback-blocked",
+    "statusCode": 503,
+    "provider": null,
+    "reason": "ALL_PROVIDERS_FAILED_FALLBACK_BLOCKED_BY_POLICY"
+  },
+  "agent": {
+    "severity": "error",
+    "summary": "All providers failed, but policy blocks origin fallback. The safe behavior is to fail closed instead of bypassing the policy boundary.",
+    "action": "OBSERVE_POLICY_BOUNDARY",
+    "reasonCodes": [
+      "ALL_PROVIDERS_FAILED",
+      "FALLBACK_BLOCKED_BY_POLICY",
+      "ORIGIN_BYPASS_PREVENTED"
+    ]
+  }
+}
