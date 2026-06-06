@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { beforeEach } from "node:test";
 
+import worker, { DemoPresenceRoom } from "../src/worker.js";
 import {
     approveRecommendation,
     createRecommendationFromAgentReport,
@@ -41,6 +42,71 @@ function sampleAgentReport() {
             routeKey: "route:/video/example/v1"
         }
     };
+}
+
+function sampleRouteTrace() {
+    return {
+        requestId: "trace-posted-001",
+        routeKey: "route:/video/posted/v1",
+        policyId: "video-public-peer-first",
+        attempts: [
+            { provider: "cdn-a", result: "PROVIDER_TIMEOUT" },
+            { provider: "cdn-c", result: "PROVIDER_SUCCESS" }
+        ],
+        failurePoints: [
+            {
+                sequence: 1,
+                stage: "PROVIDER_TIMEOUT",
+                code: "PROVIDER_TIMEOUT",
+                provider: "cdn-a",
+                routeKey: "route:/video/posted/v1",
+                chunkKey: "chunk:/video/posted/v1/chunk-0001.m4s",
+                policyId: "video-public-peer-first",
+                fallbackAllowed: { peer: true, origin: false }
+            }
+        ],
+        selectedFallback: null,
+        finalStatus: {
+            outcome: "provider-success",
+            statusCode: 200,
+            provider: "cdn-c",
+            reason: "PROVIDER_TIMEOUT_FAILOVER"
+        }
+    };
+}
+
+function makeEnv() {
+    const presenceRoom = new DemoPresenceRoom({}, {});
+    return {
+        MGP_SIGNAL: {
+            idFromName(name) {
+                return name;
+            },
+            get(id) {
+                return {
+                    async fetch() {
+                        return new Response("stub websocket room " + id, { status: 200 });
+                    }
+                };
+            }
+        },
+        DEMO_PRESENCE: {
+            idFromName(name) {
+                return name;
+            },
+            get() {
+                return presenceRoom;
+            }
+        }
+    };
+}
+
+function jsonRequest(path, body) {
+    return new Request("https://edge.example.com" + path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+    });
 }
 
 test("creates a pending recommendation from an agent report", () => {
@@ -149,4 +215,61 @@ test("normalizes lifecycle errors for HTTP responses", () => {
         assert.equal(response.status, 400);
         assert.equal(response.body.code, "OPERATOR_REQUIRED");
     }
+});
+
+test("worker creates and lists recommendation lifecycle records", async () => {
+    const createResponse = await worker.fetch(jsonRequest("/agent/recommendations", { routeTrace: sampleRouteTrace() }), makeEnv(), {});
+    const created = await createResponse.json();
+    const listResponse = await worker.fetch(new Request("https://edge.example.com/agent/recommendations"), makeEnv(), {});
+    const list = await listResponse.json();
+
+    assert.equal(createResponse.status, 201);
+    assert.equal(created.recommendation.status, "pending");
+    assert.equal(created.recommendation.requestId, "trace-posted-001");
+    assert.equal(listResponse.status, 200);
+    assert.equal(list.recommendations.length, 1);
+});
+
+test("worker approves recommendation and exposes audit log", async () => {
+    const createResponse = await worker.fetch(jsonRequest("/agent/recommendations", { routeTrace: sampleRouteTrace() }), makeEnv(), {});
+    const created = await createResponse.json();
+    const approveResponse = await worker.fetch(jsonRequest("/agent/recommendations/" + created.recommendation.recommendationId + "/approve", {
+        operator: "reviewer",
+        note: "Approve route scoped action."
+    }), makeEnv(), {});
+    const approved = await approveResponse.json();
+    const auditResponse = await worker.fetch(new Request("https://edge.example.com/agent/audit-log"), makeEnv(), {});
+    const audit = await auditResponse.json();
+
+    assert.equal(approveResponse.status, 200);
+    assert.equal(approved.recommendation.status, "approved");
+    assert.equal(auditResponse.status, 200);
+    assert.equal(audit.auditLog.length, 2);
+    assert.equal(audit.auditLog[1].action, "approved");
+});
+
+test("worker rejects recommendation without changing live route policy", async () => {
+    const createResponse = await worker.fetch(jsonRequest("/agent/recommendations", { routeTrace: sampleRouteTrace() }), makeEnv(), {});
+    const created = await createResponse.json();
+    const rejectResponse = await worker.fetch(jsonRequest("/agent/recommendations/" + created.recommendation.recommendationId + "/reject", {
+        operator: "reviewer",
+        note: "Reject scoped action."
+    }), makeEnv(), {});
+    const rejected = await rejectResponse.json();
+
+    assert.equal(rejectResponse.status, 200);
+    assert.equal(rejected.recommendation.status, "rejected");
+    assert.equal(rejected.recommendation.proposedAction.type, "policy_annotation");
+});
+
+test("worker blocks approval without reviewer", async () => {
+    const createResponse = await worker.fetch(jsonRequest("/agent/recommendations", { routeTrace: sampleRouteTrace() }), makeEnv(), {});
+    const created = await createResponse.json();
+    const approveResponse = await worker.fetch(jsonRequest("/agent/recommendations/" + created.recommendation.recommendationId + "/approve", {
+        note: "Missing reviewer."
+    }), makeEnv(), {});
+    const body = await approveResponse.json();
+
+    assert.equal(approveResponse.status, 400);
+    assert.equal(body.code, "OPERATOR_REQUIRED");
 });
