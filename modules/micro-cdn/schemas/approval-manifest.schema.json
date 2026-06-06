@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deerspotter.github.io/flareless/schemas/micro-cdn/approval-manifest.schema.json",
+  "title": "Flareless Micro CDN Approval Manifest",
+  "description": "Coordinator side approval record for public content allowed to route through the optional micro CDN path.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approvalId",
+    "issuer",
+    "createdAt",
+    "expiresAt",
+    "namespace",
+    "publicPath",
+    "sha256",
+    "sizeBytes",
+    "contentType",
+    "originUrl"
+  ],
+  "properties": {
+    "approvalId": {
+      "type": "string",
+      "pattern": "^appr_[A-Za-z0-9_-]{8,80}$",
+      "description": "Stable unique identifier for the approval event."
+    },
+    "issuer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "System, maintainer, or authority that issued the approval."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the approval was created."
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp after which content must not route."
+    },
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+      "description": "Public namespace for the content family."
+    },
+    "publicPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$",
+      "description": "Public path exposed through /mcdn/{namespace}/{displayPath}. Must not be absolute or contain traversal."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Expected SHA256 digest of the bytes."
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Expected content size in bytes."
+    },
+    "contentType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*(; ?[A-Za-z0-9_-]+=[A-Za-z0-9._+-]+)*$",
+      "description": "Declared media type for the approved asset."
+    },
+    "originUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Public origin URL used as the authoritative source."
+    },
+    "signatureAlgorithm": {
+      "type": "string",
+      "enum": [
+        "none",
+        "ed25519-detached-jcs-v1"
+      ],
+      "default": "none",
+      "description": "Optional signature algorithm label. Use none until real signature verification is implemented."
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "Optional detached signature placeholder for future verification."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "signatureAlgorithm": {
+            "const": "ed25519-detached-jcs-v1"
+          }
+        },
+        "required": [
+          "signatureAlgorithm"
+        ]
+      },
+      "then": {
+        "required": [
+          "signature"
+        ]
+      }
+    }
+  ]
+}
