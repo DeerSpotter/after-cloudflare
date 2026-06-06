@@ -113,23 +113,29 @@ approval and rejection require an operator
 audit events are appended
 invalid double decisions are rejected
 micro CDN status does not claim real peer transfer or detached signatures
+compatibility endpoints remain available
 ```
 
 ## Scenarios
 
-The first release includes four scenarios:
+The first release includes these scenarios:
 
 ```text
 healthy-route
+http-status-failover
 timeout-failover
 blocked-provider
 all-providers-failed
+origin-blocked
+microcdn-hello
+microcdn-no-healthy-node
 ```
 
 Each scenario updates the same model:
 
 ```text
 providers
+headers
 routeTrace
 agent recommendation
 audit log
@@ -147,7 +153,7 @@ Shows provider status, latency, last result, and route scoped health.
 
 ### Route Trace
 
-Shows the current route trace JSON. This maps to the existing Flareless `routeTrace` shape:
+Shows the current route trace JSON and generated `x-flareless-*` explanation headers. This maps to the existing Flareless `routeTrace` shape:
 
 ```text
 requestId
@@ -184,13 +190,19 @@ GET  /status
 GET  /scenarios
 GET  /providers
 GET  /route/trace
+GET  /route/traces
+GET  /route/traces/{traceId}
 POST /route/simulate
+POST /agent/cdn-control
 GET  /agent/recommendations
+POST /agent/recommendations
 GET  /agent/recommendations/{recommendationId}
 POST /agent/recommendations/{recommendationId}/approve
 POST /agent/recommendations/{recommendationId}/reject
 GET  /agent/audit-log
 GET  /micro-cdn/status
+GET  /microcdn/status
+POST /state/reset
 ```
 
 ## Release recommendation
