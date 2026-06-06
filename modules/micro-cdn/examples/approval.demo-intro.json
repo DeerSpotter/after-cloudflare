@@ -1,0 +1,13 @@
+{
+  "approvalId": "appr_demo_intro_0001",
+  "issuer": "flareless-demo-coordinator",
+  "createdAt": "2026-05-18T00:00:00Z",
+  "expiresAt": "2027-05-18T00:00:00Z",
+  "namespace": "demo",
+  "publicPath": "video/intro-0001.ts",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sizeBytes": 1048576,
+  "contentType": "video/mp2t",
+  "originUrl": "https://origin.example.test/video/intro-0001.ts",
+  "signatureAlgorithm": "none"
+}
