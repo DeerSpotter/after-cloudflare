@@ -32,6 +32,8 @@ async function main() {
     await testInvalidApprovalRejection();
     await testExpiredApprovalRejection();
     await testSmokeFlow();
+    await testDisabledNodeRejection();
+    await testOfflineNodeRejection();
     await testBadHashRejection();
     await testDeleteAndUnadvertise();
 
@@ -178,6 +180,60 @@ async function testSmokeFlow() {
   assert.equal(storedHash, expectedSha256);
 }
 
+async function testDisabledNodeRejection() {
+  const disabledContentId = 'demo/disabled-node.txt';
+  const disabledDisplayPath = 'disabled-node.txt';
+  const disabledPublicPath = '/mcdn/demo/disabled-node.txt';
+
+  await approveSpecificContent(disabledContentId, disabledDisplayPath);
+  await postJson(coordinatorUrl + '/nodes/register', {
+    nodeId: 'node-disabled',
+    region: 'local-dev',
+    maxDiskMb: 128,
+    maxBandwidthMbps: 25,
+    microCdnEnabled: false,
+    publicAddress: 'http://127.0.0.1:18083'
+  });
+  await postJson(coordinatorUrl + '/content/advertise', {
+    nodeId: 'node-disabled',
+    contentId: disabledContentId
+  });
+
+  const route = await getJsonAllowFailure(coordinatorUrl + '/route?path=' + encodeURIComponent(disabledPublicPath));
+  assert.equal(route.status, 404);
+  assert.ok(route.body.reasonCodes.includes('NO_HEALTHY_NODE'));
+  assertRejectedCandidate(route.body, 'node-disabled', 'NODE_DISABLED');
+}
+
+async function testOfflineNodeRejection() {
+  const offlineContentId = 'demo/offline-node.txt';
+  const offlineDisplayPath = 'offline-node.txt';
+  const offlinePublicPath = '/mcdn/demo/offline-node.txt';
+
+  await approveSpecificContent(offlineContentId, offlineDisplayPath);
+  await postJson(coordinatorUrl + '/nodes/register', {
+    nodeId: 'node-offline',
+    region: 'local-dev',
+    maxDiskMb: 128,
+    maxBandwidthMbps: 25,
+    microCdnEnabled: true,
+    publicAddress: 'http://127.0.0.1:18084'
+  });
+  await postJson(coordinatorUrl + '/nodes/health', {
+    nodeId: 'node-offline',
+    online: false
+  });
+  await postJson(coordinatorUrl + '/content/advertise', {
+    nodeId: 'node-offline',
+    contentId: offlineContentId
+  });
+
+  const route = await getJsonAllowFailure(coordinatorUrl + '/route?path=' + encodeURIComponent(offlinePublicPath));
+  assert.equal(route.status, 404);
+  assert.ok(route.body.reasonCodes.includes('NO_HEALTHY_NODE'));
+  assertRejectedCandidate(route.body, 'node-offline', 'NODE_OFFLINE');
+}
+
 async function testBadHashRejection() {
   const badResponse = await postJsonAllowFailure(nodeUrl + '/cache/local-file', {
     contentId: 'demo/bad-hash.txt',
@@ -236,22 +292,34 @@ async function testRestartPersistence() {
 }
 
 async function approveContent() {
+  return approveSpecificContent(contentId, displayPath);
+}
+
+async function approveSpecificContent(targetContentId, targetDisplayPath) {
   const approved = await postJson(coordinatorUrl + '/content/approve', {
-    contentId,
+    contentId: targetContentId,
     namespace,
-    displayPath,
+    displayPath: targetDisplayPath,
     sha256: expectedSha256,
-    url: 'https://origin.example.test/hello.txt',
-    originUrl: 'https://origin.example.test/hello.txt',
+    url: 'https://origin.example.test/' + targetDisplayPath,
+    originUrl: 'https://origin.example.test/' + targetDisplayPath,
     contentType: 'text/plain',
     sizeBytes: 13,
     maxAgeSeconds: 86400
   });
 
   assert.equal(approved.ok, true);
-  assert.equal(approved.content.publicPath, publicPath);
-  assert.equal(approved.content.originUrl, 'https://origin.example.test/hello.txt');
+  assert.equal(approved.content.publicPath, '/mcdn/demo/' + targetDisplayPath);
+  assert.equal(approved.content.originUrl, 'https://origin.example.test/' + targetDisplayPath);
   assert.ok(approved.reasonCodes.includes('CONTENT_APPROVED'));
+  return approved;
+}
+
+function assertRejectedCandidate(routeBody, nodeId, reasonCode) {
+  assert.ok(Array.isArray(routeBody.rejectedCandidates));
+  const rejected = routeBody.rejectedCandidates.find(candidate => candidate.nodeId === nodeId);
+  assert.ok(rejected, 'expected rejected candidate for ' + nodeId);
+  assert.ok(rejected.reasonCodes.includes(reasonCode), 'expected ' + reasonCode + ' for ' + nodeId);
 }
 
 function trackProcess(child, label) {
