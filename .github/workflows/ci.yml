@@ -36,6 +36,19 @@ jobs:
       - name: Test micro CDN integration
         run: npm run test:micro-cdn
 
+  local-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Test local demo console
+        run: python tools/local-demo/run_tests.py
+
   go:
     runs-on: ubuntu-latest
     steps:
