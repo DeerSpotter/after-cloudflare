@@ -4,6 +4,10 @@ The local demo console is the recommended first release experience for Flareless
 
 It gives new users a visual way to understand the project without needing Cloudflare Workers, external CDNs, a database, WebRTC, or a production control plane.
 
+<p align="center">
+  <img src="./assets/local-demo-console-screenshot.svg" alt="Flareless Local Demo Console dashboard screenshot">
+</p>
+
 ## Positioning
 
 Use this wording:
