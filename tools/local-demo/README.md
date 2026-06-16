@@ -12,6 +12,7 @@ The Python console includes:
 
 ```text
 Global Smart Traffic & Failover Map
+MapLibre real world map option
 Plotly real world map option
 normalized provider health
 route attempt chain
@@ -26,33 +27,41 @@ audit log
 release tour playback
 ```
 
-## Plotly real world map
+## MapLibre real world command map
 
-The old hand drawn Tkinter map is not the release quality map. Use the Plotly live map for a real world basemap with actual coastlines, country borders, land, ocean, and route overlays.
+The hand drawn Tkinter canvas map is now only a fallback. For the release visual, use the MapLibre map. It uses a real MapLibre GL basemap with coastlines, land, ocean, country detail, route arcs, node labels, and live polling from the local demo API.
 
-Generate the Plotly map from Windows:
-
-```text
-tools/local-demo/start_plotly_map.bat
-```
-
-Then start the local demo server and console:
+Start the local server and console:
 
 ```text
 tools/local-demo/start.bat
 ```
 
-Open this generated file in your browser if it did not open already:
+Then open:
 
 ```text
-tools/local-demo/assets/flareless_plotly_live_map.html
+tools/local-demo/start_maplibre_map.bat
 ```
 
-The Plotly map polls the local server at `http://127.0.0.1:8765`, so changing scenarios in the Python console updates the browser map.
+The generated browser file is:
+
+```text
+tools/local-demo/assets/flareless_maplibre_live_map.html
+```
+
+Changing scenarios in the Python console updates the MapLibre map because it polls `http://127.0.0.1:8765`.
+
+## Plotly real world map
+
+A Plotly map option is still available, but MapLibre is the preferred visual for the command map.
+
+```text
+tools/local-demo/start_plotly_map.bat
+```
 
 ## OSIRIS 2D map asset reuse
 
-The Tkinter fallback map still keeps OSIRIS style metadata from `DeerSpotter/osiris-v2`, but it is now a fallback only. The Plotly browser map is the intended real world visual map for the release build.
+The Tkinter fallback map still keeps OSIRIS style metadata from `DeerSpotter/osiris-v2`, but it is now a fallback only. The MapLibre browser map is the intended real world visual map for the release build.
 
 The copied metadata lives in:
 
@@ -70,10 +79,10 @@ From Windows Explorer, open:
 tools/local-demo/start.bat
 ```
 
-To generate the Plotly real world map HTML, open:
+To generate and open the MapLibre real world map HTML, open:
 
 ```text
-tools/local-demo/start_plotly_map.bat
+tools/local-demo/start_maplibre_map.bat
 ```
 
 ### Command line
@@ -161,7 +170,7 @@ Those remain future work.
 
 ### Command Center
 
-Shows the route map, provider health, active route, pending approval count, and route attempt chain. Use the Plotly browser map when you need a real world map.
+Shows the route map, provider health, active route, pending approval count, and route attempt chain. Use the MapLibre browser map when you need a real world map.
 
 ### Policy Builder
 
