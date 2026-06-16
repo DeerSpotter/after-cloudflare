@@ -1,5 +1,7 @@
 # Flareless Local Demo Console
 
+![Flareless local demo screenshot](./Screenshot%202026-06-16%20161950.png)
+
 The local Python console is the release focused first run experience for Flareless.
 
 It can run as either the original Tkinter console or the new embedded MapLibre GUI. The embedded GUI starts the local server inside Python and shows the real MapLibre command map inside the Python application window.
