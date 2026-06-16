@@ -1,32 +1,88 @@
 # Flareless Local Demo Console
 
-The local demo console is the recommended first release experience for Flareless.
+The local Python console is the release focused first run experience for Flareless.
 
-It gives new users a visual way to understand the project without needing Cloudflare Workers, external CDNs, a database, WebRTC, or a production control plane.
+It starts a local server and opens a Tkinter command center that demonstrates failure aware route control, agent recommendations, operator approval, audit evidence, and Micro CDN trust boundaries without requiring Cloudflare Workers, external CDNs, a database, WebRTC, or a production control plane.
 
-<p align="center">
-  <img
-    src="./assets/Screenshot 2026-06-08 074724.png"
-    alt="Flareless Local Demo Console dashboard screenshot"
-    width="1000">
-</p>
+## What changed for the release build
 
-## Positioning
+The console is now the primary UI. The static `demo/` page remains the lightweight mobile browser demo.
 
-Use this wording:
+The Python console includes:
 
 ```text
-Local prototype console for route failure, agent recommendation, operator approval, and audit logging.
+Global Smart Traffic & Failover Map
+OSIRIS inspired 2D vector map assets
+normalized provider health
+route attempt chain
+visual route policy builder
+YAML and JSON policy export
+agent recommendation inbox
+operator approve or reject flow
+micro CDN trust dashboard
+generated x-flareless-* evidence headers
+route trace JSON
+audit log
+release tour playback
 ```
 
-Avoid this wording:
+## OSIRIS 2D map asset reuse
+
+The map uses the lightweight fallback world rings, palette, and map style metadata from `DeerSpotter/osiris-v2`.
+
+For the first release, the Tkinter map intentionally uses the embedded vector fallback instead of live web tiles. That keeps the demo offline friendly and avoids adding runtime network dependencies.
+
+The copied metadata lives in:
 
 ```text
-production peer CDN
-AI controlled CDN
-autonomous CDN control
-self healing internet
+tools/local-demo/osiris_map_assets.py
 ```
+
+## Run it
+
+From the repository root:
+
+```bash
+python tools/local-demo/run_demo.py
+```
+
+That starts the local server and opens the Tkinter release console.
+
+Alternative two terminal flow:
+
+```bash
+python tools/local-demo/server.py
+```
+
+Then:
+
+```bash
+python tools/local-demo/client.py
+```
+
+The server listens at:
+
+```text
+http://127.0.0.1:8765
+```
+
+## Test it
+
+From the repository root:
+
+```bash
+python tools/local-demo/run_tests.py
+```
+
+The test runner performs these checks:
+
+```text
+compile all local demo Python files
+validate scenario fixture contracts
+run unittest API and lifecycle coverage
+```
+
+The local demo tests also cover the Python 3.12 import path used by CI.
 
 ## What it demonstrates
 
@@ -63,192 +119,31 @@ external CDN API integration
 
 Those remain future work.
 
-## Run it
+## GUI screens
 
-From the repository root:
+### Command Center
 
-```bash
-python tools/local-demo/run_demo.py
-```
+Shows the OSIRIS style 2D route map, provider health, active route, pending approval count, and route attempt chain.
 
-That starts the local server and opens the Tkinter client.
+### Policy Builder
 
-Alternative two terminal flow:
+Builds a provider neutral `IF / AND / THEN` route policy and exports it as YAML or JSON. The test button runs a local simulation only and does not mutate live policy.
 
-```bash
-python tools/local-demo/server.py
-```
+### Approvals
 
-Then:
+Shows the agent recommendation inbox and lets an operator approve or reject the latest pending recommendation.
 
-```bash
-python tools/local-demo/client.py
-```
+### Micro CDN Trust
 
-The server listens at:
+Shows peer style trust evidence and the current implementation boundaries. It remains honest about what is local hash verified and what is still future work.
 
-```text
-http://127.0.0.1:8765
-```
+### Evidence
 
-## Test it
+Shows generated `x-flareless-*` headers and route trace JSON.
 
-From the repository root:
-
-```bash
-python tools/local-demo/run_tests.py
-```
-
-The test runner performs these checks:
-
-```text
-compile all local demo Python files
-validate scenario fixture contracts
-run unittest API and lifecycle coverage
-```
-
-The CI workflow also runs this command in the `local-demo` job.
-
-The checks prove:
-
-```text
-routeTrace top-level shape stays stable
-the golden provider chain remains cdn-a timeout, cdn-b 429, cdn-c success
-scenario fixtures load cleanly
-pending recommendations can be created
-approval and rejection require an operator
-audit events are appended
-invalid double decisions are rejected
-micro CDN status does not claim real peer transfer or detached signatures
-compatibility endpoints remain available
-```
-
-## Guided experience
-
-The GUI includes a menu bar and playback controls so a new user can walk through the story without knowing the internals first.
-
-Menu groups:
-
-```text
-File
-Scenarios
-Actions
-View
-Help
-```
-
-The top control bar includes:
-
-```text
-Run scenario
-Start auto tour
-Stop
-Reset state
-```
-
-The auto tour walks through the main story:
-
-```text
-healthy route
-HTTP status failover
-blocked provider failover
-all providers failed
-origin fallback blocked by policy
-micro CDN approved content
-micro CDN no healthy node
-operator/audit review
-```
-
-The progress bar shows the current tour position. The tour switches tabs automatically so screenshots and screen recordings tell the story clearly.
-
-## Scenarios
-
-The first release includes these scenarios:
-
-```text
-healthy-route
-http-status-failover
-timeout-failover
-blocked-provider
-all-providers-failed
-origin-blocked
-microcdn-hello
-microcdn-no-healthy-node
-```
-
-Each scenario updates the same model:
-
-```text
-providers
-headers
-routeTrace
-agent recommendation
-audit log
-```
-
-## GUI tabs
-
-### Dashboard
-
-Shows the selected scenario, route key, policy ID, route status, active provider, route reason, pending recommendation count, audit count, and honest boundaries.
-
-### Providers
-
-Shows provider status, latency, last result, and route scoped health.
-
-### Route Trace
-
-Shows the current route trace JSON and generated `x-flareless-*` explanation headers. This maps to the existing Flareless `routeTrace` shape:
-
-```text
-requestId
-routeKey
-policyId
-attempts
-failurePoints
-selectedFallback
-finalStatus
-```
-
-### Agent Recommendation
-
-Shows the latest recommendation, status, severity, summary, reason codes, and scoped proposed action.
-
-### Operator Approval
-
-Lets a local operator approve or reject the latest pending recommendation.
-
-Approval only records a decision and audit event. It does not mutate live route policy yet.
-
-### Audit Log
+### Audit
 
 Shows lifecycle events for created, approved, and rejected recommendations.
-
-### Micro CDN Status
-
-Shows what is implemented and what is still future work in the optional micro CDN path.
-
-## API endpoints
-
-```text
-GET  /status
-GET  /scenarios
-GET  /providers
-GET  /route/trace
-GET  /route/traces
-GET  /route/traces/{traceId}
-POST /route/simulate
-POST /agent/cdn-control
-GET  /agent/recommendations
-POST /agent/recommendations
-GET  /agent/recommendations/{recommendationId}
-POST /agent/recommendations/{recommendationId}/approve
-POST /agent/recommendations/{recommendationId}/reject
-GET  /agent/audit-log
-GET  /micro-cdn/status
-GET  /microcdn/status
-POST /state/reset
-```
 
 ## Release recommendation
 
@@ -267,5 +162,5 @@ Flareless v0.1.0: Failure Aware Route Control Demo
 Suggested release description:
 
 ```text
-A local Python demo console that shows provider failure, route traces, agent assisted recommendations, operator approval, and audit logging.
+A local Python command center that shows provider failure, route traces, agent assisted recommendations, operator approval, audit logging, and Micro CDN trust boundaries.
 ```
