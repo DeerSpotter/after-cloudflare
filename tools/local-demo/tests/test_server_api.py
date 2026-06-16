@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,7 @@ SERVER_PATH = ROOT / "server.py"
 spec = importlib.util.spec_from_file_location("local_demo_server", SERVER_PATH)
 server = importlib.util.module_from_spec(spec)
 assert spec is not None and spec.loader is not None
+sys.modules[spec.name] = server
 spec.loader.exec_module(server)
 
 
