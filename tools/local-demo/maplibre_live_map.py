@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
-"""MapLibre HTML map for the Flareless local demo server."""
+"""Generate the MapLibre command map used by the local demo."""
 
 from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+OUTPUT_PATH = ROOT / "assets" / "flareless_maplibre_live_map.html"
+DEFAULT_BASE_URL = "http://127.0.0.1:8765"
+
+
+def write_maplibre_live_map(base_url: str = DEFAULT_BASE_URL, output_path: Path | None = None) -> Path:
+    output = output_path or OUTPUT_PATH
+    output.parent.mkdir(parents=True, exist_ok=True)
+    html = MAPLIBRE_HTML.replace("__BASE_URL__", base_url.rstrip("/"))
+    output.write_text(html, encoding="utf-8")
+    return output
+
 
 MAPLIBRE_HTML = r'''<!doctype html>
 <html lang="en">
@@ -15,37 +30,13 @@ MAPLIBRE_HTML = r'''<!doctype html>
     :root { color-scheme: dark; }
     html, body, #map { height: 100%; width: 100%; margin: 0; background: #050b14; }
     body { font-family: Segoe UI, system-ui, sans-serif; overflow: hidden; }
-    .hud {
-      position: absolute;
-      left: 16px;
-      top: 16px;
-      z-index: 5;
-      min-width: 290px;
-      padding: 14px 16px;
-      border: 1px solid rgba(117, 246, 204, .58);
-      border-radius: 14px;
-      background: linear-gradient(180deg, rgba(8, 17, 28, .92), rgba(8, 14, 23, .84));
-      box-shadow: 0 0 28px rgba(63, 202, 255, .16), inset 0 0 20px rgba(48, 255, 177, .04);
-      color: #e7f3ff;
-      backdrop-filter: blur(10px);
-    }
+    .hud { position: absolute; left: 16px; top: 16px; z-index: 5; min-width: 290px; padding: 14px 16px; border: 1px solid rgba(117,246,204,.58); border-radius: 14px; background: linear-gradient(180deg, rgba(8,17,28,.92), rgba(8,14,23,.84)); box-shadow: 0 0 28px rgba(63,202,255,.16), inset 0 0 20px rgba(48,255,177,.04); color: #e7f3ff; backdrop-filter: blur(10px); }
     .hud h1 { margin: 0 0 2px; font-size: 17px; letter-spacing: .01em; }
     .sub { color: #6df0b2; font: 12px Consolas, monospace; margin-bottom: 10px; }
     .row { display: grid; grid-template-columns: 98px 1fr; gap: 8px; font: 12px Consolas, monospace; margin: 5px 0; }
     .key { color: #9db3c6; }
     .value { color: #e9f7ff; word-break: break-word; }
-    .legend {
-      position: absolute;
-      right: 18px;
-      bottom: 18px;
-      z-index: 5;
-      color: #dcecff;
-      background: rgba(8, 15, 25, .86);
-      border: 1px solid rgba(117, 246, 204, .34);
-      border-radius: 12px;
-      padding: 12px 14px;
-      font: 12px Consolas, monospace;
-    }
+    .legend { position: absolute; right: 18px; bottom: 18px; z-index: 5; color: #dcecff; background: rgba(8,15,25,.86); border: 1px solid rgba(117,246,204,.34); border-radius: 12px; padding: 12px 14px; font: 12px Consolas, monospace; }
     .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
   </style>
 </head>
@@ -66,6 +57,7 @@ MAPLIBRE_HTML = r'''<!doctype html>
     <div><span class="dot" style="background:#24dce9"></span>Micro CDN</div>
   </section>
   <script>
+    const BASE_URL = '__BASE_URL__';
     const nodeCoords = {
       'client-us': { label: 'User traffic', lat: 39.5, lon: -98.3, kind: 'client' },
       'flareless': { label: 'Flareless', lat: 32.0, lon: -35.0, kind: 'director' },
@@ -91,7 +83,7 @@ MAPLIBRE_HTML = r'''<!doctype html>
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     async function api(path) {
-      const response = await fetch(path, { cache: 'no-store' });
+      const response = await fetch(BASE_URL + path, { cache: 'no-store' });
       if (!response.ok) throw new Error(path + ' ' + response.status);
       return response.json();
     }
@@ -103,10 +95,7 @@ MAPLIBRE_HTML = r'''<!doctype html>
       const lift = Math.min(32, Math.max(8, Math.abs(dx) * 0.12));
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
-        coords.push([
-          from.lon + dx * t,
-          from.lat + (to.lat - from.lat) * t + Math.sin(Math.PI * t) * lift
-        ]);
+        coords.push([from.lon + dx * t, from.lat + (to.lat - from.lat) * t + Math.sin(Math.PI * t) * lift]);
       }
       return coords;
     }
@@ -123,15 +112,11 @@ MAPLIBRE_HTML = r'''<!doctype html>
         segments.push({ from: last, to: attempt.provider, result: attempt.result || 'UNKNOWN' });
         last = attempt.provider;
       }
-      if (finalProvider && nodeCoords[finalProvider]) {
-        segments.push({ from: finalProvider, to: 'client-us', result: 'PROVIDER_SUCCESS' });
-      }
+      if (finalProvider && nodeCoords[finalProvider]) segments.push({ from: finalProvider, to: 'client-us', result: 'PROVIDER_SUCCESS' });
       return segments;
     }
 
-    function isGood(result) {
-      return result.includes('SUCCESS') || result.includes('ADVERTISES_CONTENT');
-    }
+    function isGood(result) { return result.includes('SUCCESS') || result.includes('ADVERTISES_CONTENT'); }
 
     function nodeColor(id, result, active) {
       if (id === active) return '#14f09a';
@@ -150,11 +135,7 @@ MAPLIBRE_HTML = r'''<!doctype html>
         const from = nodeCoords[seg.from];
         const to = nodeCoords[seg.to];
         if (!from || !to) continue;
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'LineString', coordinates: arc(from, to) },
-          properties: { kind: 'route', result: seg.result, good: isGood(seg.result), label: `${from.label} → ${to.label}: ${seg.result}` }
-        });
+        features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: arc(from, to) }, properties: { kind: 'route', result: seg.result, good: isGood(seg.result), label: `${from.label} to ${to.label}: ${seg.result}` } });
       }
       const wanted = new Set(['client-us', 'flareless', 'origin']);
       for (const p of providers) wanted.add(p.name);
@@ -163,11 +144,7 @@ MAPLIBRE_HTML = r'''<!doctype html>
       for (const id of wanted) {
         const node = nodeCoords[id];
         if (!node) continue;
-        features.push({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [node.lon, node.lat] },
-          properties: { kind: 'node', id, label: node.label, color: nodeColor(id, resultByProvider[id], active), result: resultByProvider[id] || node.kind }
-        });
+        features.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [node.lon, node.lat] }, properties: { kind: 'node', id, label: node.label, color: nodeColor(id, resultByProvider[id], active), result: resultByProvider[id] || node.kind } });
       }
       return { type: 'FeatureCollection', features };
     }
@@ -179,53 +156,14 @@ MAPLIBRE_HTML = r'''<!doctype html>
 
     function addLayers() {
       map.addSource('flareless-live', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.addLayer({
-        id: 'flareless-route-shadow',
-        type: 'line',
-        source: 'flareless-live',
-        filter: ['==', ['get', 'kind'], 'route'],
-        paint: { 'line-color': '#052d29', 'line-width': 8, 'line-opacity': 0.72 }
-      });
-      map.addLayer({
-        id: 'flareless-routes',
-        type: 'line',
-        source: 'flareless-live',
-        filter: ['==', ['get', 'kind'], 'route'],
-        paint: {
-          'line-color': ['case', ['==', ['get', 'good'], true], '#14f09a', '#ff465a'],
-          'line-width': ['case', ['==', ['get', 'good'], true], 3, 2],
-          'line-opacity': 0.96,
-          'line-dasharray': ['case', ['==', ['get', 'good'], true], ['literal', [1, 0]], ['literal', [2, 2]]]
-        }
-      });
-      map.addLayer({
-        id: 'flareless-nodes',
-        type: 'circle',
-        source: 'flareless-live',
-        filter: ['==', ['get', 'kind'], 'node'],
-        paint: {
-          'circle-radius': ['case', ['==', ['get', 'id'], 'flareless'], 11, 8],
-          'circle-color': ['get', 'color'],
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': 1.3,
-          'circle-blur': 0.05
-        }
-      });
-      map.addLayer({
-        id: 'flareless-labels',
-        type: 'symbol',
-        source: 'flareless-live',
-        filter: ['==', ['get', 'kind'], 'node'],
-        layout: { 'text-field': ['get', 'label'], 'text-size': 12, 'text-offset': [1.2, -0.7], 'text-anchor': 'left' },
-        paint: { 'text-color': '#e7f3ff', 'text-halo-color': '#07101f', 'text-halo-width': 1.2 }
-      });
+      map.addLayer({ id: 'flareless-route-shadow', type: 'line', source: 'flareless-live', filter: ['==', ['get', 'kind'], 'route'], paint: { 'line-color': '#052d29', 'line-width': 8, 'line-opacity': 0.72 } });
+      map.addLayer({ id: 'flareless-routes', type: 'line', source: 'flareless-live', filter: ['==', ['get', 'kind'], 'route'], paint: { 'line-color': ['case', ['==', ['get', 'good'], true], '#14f09a', '#ff465a'], 'line-width': ['case', ['==', ['get', 'good'], true], 3, 2], 'line-opacity': 0.96, 'line-dasharray': ['case', ['==', ['get', 'good'], true], ['literal', [1, 0]], ['literal', [2, 2]]] } });
+      map.addLayer({ id: 'flareless-nodes', type: 'circle', source: 'flareless-live', filter: ['==', ['get', 'kind'], 'node'], paint: { 'circle-radius': ['case', ['==', ['get', 'id'], 'flareless'], 11, 8], 'circle-color': ['get', 'color'], 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.3, 'circle-blur': 0.05 } });
+      map.addLayer({ id: 'flareless-labels', type: 'symbol', source: 'flareless-live', filter: ['==', ['get', 'kind'], 'node'], layout: { 'text-field': ['get', 'label'], 'text-size': 12, 'text-offset': [1.2, -0.7], 'text-anchor': 'left' }, paint: { 'text-color': '#e7f3ff', 'text-halo-color': '#07101f', 'text-halo-width': 1.2 } });
       map.on('click', 'flareless-nodes', (event) => {
         const feature = event.features && event.features[0];
         if (!feature) return;
-        new maplibregl.Popup({ closeButton: true })
-          .setLngLat(feature.geometry.coordinates)
-          .setHTML(`<strong>${feature.properties.label}</strong><br>${feature.properties.result}`)
-          .addTo(map);
+        new maplibregl.Popup({ closeButton: true }).setLngLat(feature.geometry.coordinates).setHTML(`<strong>${feature.properties.label}</strong><br>${feature.properties.result}`).addTo(map);
       });
     }
 
@@ -244,11 +182,7 @@ MAPLIBRE_HTML = r'''<!doctype html>
       }
     }
 
-    map.on('load', () => {
-      addLayers();
-      refresh();
-      setInterval(refresh, 1000);
-    });
+    map.on('load', () => { addLayers(); refresh(); setInterval(refresh, 1000); });
   </script>
 </body>
 </html>
@@ -256,4 +190,5 @@ MAPLIBRE_HTML = r'''<!doctype html>
 
 
 if __name__ == "__main__":
-    print(MAPLIBRE_HTML)
+    path = write_maplibre_live_map()
+    print(path)
