@@ -12,7 +12,7 @@ The Python console includes:
 
 ```text
 Global Smart Traffic & Failover Map
-OSIRIS inspired 2D vector map assets
+Plotly real world map option
 normalized provider health
 route attempt chain
 visual route policy builder
@@ -26,11 +26,33 @@ audit log
 release tour playback
 ```
 
+## Plotly real world map
+
+The old hand drawn Tkinter map is not the release quality map. Use the Plotly live map for a real world basemap with actual coastlines, country borders, land, ocean, and route overlays.
+
+Generate the Plotly map from Windows:
+
+```text
+tools/local-demo/start_plotly_map.bat
+```
+
+Then start the local demo server and console:
+
+```text
+tools/local-demo/start.bat
+```
+
+Open this generated file in your browser if it did not open already:
+
+```text
+tools/local-demo/assets/flareless_plotly_live_map.html
+```
+
+The Plotly map polls the local server at `http://127.0.0.1:8765`, so changing scenarios in the Python console updates the browser map.
+
 ## OSIRIS 2D map asset reuse
 
-The map uses the lightweight fallback world rings, palette, and map style metadata from `DeerSpotter/osiris-v2`.
-
-For the first release, the Tkinter map intentionally uses the embedded vector fallback instead of live web tiles. That keeps the demo offline friendly and avoids adding runtime network dependencies.
+The Tkinter fallback map still keeps OSIRIS style metadata from `DeerSpotter/osiris-v2`, but it is now a fallback only. The Plotly browser map is the intended real world visual map for the release build.
 
 The copied metadata lives in:
 
@@ -39,6 +61,22 @@ tools/local-demo/osiris_map_assets.py
 ```
 
 ## Run it
+
+### Windows double click launcher
+
+From Windows Explorer, open:
+
+```text
+tools/local-demo/start.bat
+```
+
+To generate the Plotly real world map HTML, open:
+
+```text
+tools/local-demo/start_plotly_map.bat
+```
+
+### Command line
 
 From the repository root:
 
@@ -123,7 +161,7 @@ Those remain future work.
 
 ### Command Center
 
-Shows the OSIRIS style 2D route map, provider health, active route, pending approval count, and route attempt chain.
+Shows the route map, provider health, active route, pending approval count, and route attempt chain. Use the Plotly browser map when you need a real world map.
 
 ### Policy Builder
 
