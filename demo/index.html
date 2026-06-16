@@ -6,265 +6,172 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Flareless Command Center</title>
+  <title>Flareless Mobile Demo</title>
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./agent-policy.css">
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="Flareless navigation">
-      <a class="brand" href="#dashboard" aria-label="Flareless dashboard home">
-        <span class="brand-mark" aria-hidden="true">✦</span>
-        <span>Flareless</span>
-      </a>
-      <nav class="nav-list">
-        <a href="#dashboard" class="nav-item is-active">Dashboard</a>
-        <a href="#traffic" class="nav-item">Traffic</a>
-        <a href="#policy" class="nav-item">Policies</a>
-        <a href="#peers" class="nav-item">Peers</a>
-        <a href="#triage" class="nav-item">Approvals</a>
-        <a href="#audit" class="nav-item">Audit log</a>
-      </nav>
-    </aside>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Flareless browser demo</p>
+      <h1>Route around CDN failure from your phone.</h1>
+      <p class="lede">
+        This static demo simulates timeout aware provider routing, HTTP failure handling,
+        route scoped health, chunk scoped health, route policy decisions, peer assisted fallback,
+        optional origin fallback, and an agent assisted control layer that explains failures before suggesting safe policy changes.
+        Live viewer detection uses the Flareless Worker presence room when configured.
+      </p>
+    </section>
 
-    <main id="dashboard" class="dashboard">
-      <header class="topbar">
+    <section id="demoControls" class="card demo-controls is-open">
+      <div class="demo-controls-header">
         <div>
-          <p class="eyebrow">Smart Traffic Layer</p>
-          <h1>Flareless tactical edge control plane</h1>
+          <p class="demo-controls-label">Demo request</p>
+          <h2>Choose a static routing test</h2>
         </div>
-        <div class="topbar-actions" aria-label="Control plane state">
-          <span id="globalStatus" class="status-pill good">Status: Optimal</span>
-          <span class="metric-chip"><span>Aggregate real time bandwidth</span><strong id="bandwidthMetric">226.0 MB/s</strong></span>
-          <button id="copyConfig" class="ghost-button" type="button">Copy config</button>
+        <button id="demoControlsToggle" class="demo-controls-toggle" type="button" aria-label="Collapse demo choices" aria-expanded="true" aria-controls="demoChoices">
+          <span id="demoControlsSymbol" aria-hidden="true">▾</span>
+        </button>
+      </div>
+      <div id="demoChoices" class="demo-choices">
+        <code class="path">/video/show-name/episode-001/v17/720p/chunk-0001.ts</code>
+        <div class="button-grid" aria-label="Demo scenarios">
+          <button type="button" data-scenario="agentAssistedControl">Agent assisted CDN control</button>
+          <button type="button" data-scenario="normal">Normal route</button>
+          <button type="button" data-scenario="timeout">Timeout failover</button>
+          <button type="button" data-scenario="http403">HTTP 403 failover</button>
+          <button type="button" data-scenario="allCdnFailPeerSuccess">All CDNs fail, peer works</button>
+          <button type="button" data-scenario="peerFailOriginBlocked">Peer fails, origin blocked</button>
+          <button type="button" data-scenario="peerFailOriginAllowed">Peer fails, origin allowed</button>
+          <button type="button" data-scenario="routeScopedHealth">Route failure stays scoped</button>
+          <button type="button" data-scenario="chunkScopedHealth">Chunk failure stays scoped</button>
+          <button type="button" data-scenario="videoPolicyPeerFallback">Video policy uses peer</button>
+          <button type="button" data-scenario="privatePolicyBlocked">Private policy blocks fallback</button>
+          <button type="button" data-scenario="originPolicyAllowed">Origin policy allows fallback</button>
         </div>
-      </header>
+      </div>
+    </section>
 
-      <section id="traffic" class="overview-grid" aria-label="Global traffic overview">
-        <article class="panel map-panel">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Global traffic overview</p>
-              <h2>Global Smart Traffic &amp; Failover Map</h2>
-            </div>
-            <span id="trafficMode" class="small-pill">Real time overview</span>
-          </div>
+    <section id="routingResult" class="card result-card" aria-live="polite" tabindex="-1">
+      <div class="result-header">
+        <h2>Routing result</h2>
+        <span id="statusPill" class="status-pill idle">Idle</span>
+      </div>
+      <ol id="timeline" class="timeline"></ol>
+    </section>
 
-          <div class="map-stage" aria-label="Global CDN and peer route map">
-            <svg id="trafficMap" viewBox="0 0 960 500" role="img" aria-labelledby="mapTitle mapDesc">
-              <title id="mapTitle">Flareless global traffic map</title>
-              <desc id="mapDesc">Traffic enters Flareless and routes across multiple CDN providers and hash verified micro CDN peers.</desc>
-              <rect class="map-bg" x="0" y="0" width="960" height="500" rx="24"></rect>
-              <path class="continent" d="M116 174c41-39 90-58 157-52 37 4 64 20 85 45-17 15-42 20-75 16-30-3-49 1-69 23-30 34-71 42-113 17-21-12-17-31 15-49z"></path>
-              <path class="continent" d="M239 266c58 11 88 50 87 116-1 56-34 82-72 55-28-20-17-49-39-75-21-25-54-35-51-67 2-23 29-37 75-29z"></path>
-              <path class="continent" d="M444 143c74-42 151-44 230-9 46 20 77 47 93 82-64 20-117 14-161-18-22-17-51-12-87 15-49 37-91 28-126-28 11-17 28-31 51-42z"></path>
-              <path class="continent" d="M521 246c38-13 73-7 106 18 30 23 43 55 40 97-2 32-19 54-51 65-35-52-70-85-105-100-25-11-34-31-27-59 9-8 21-15 37-21z"></path>
-              <path class="continent" d="M715 308c54-23 104-20 149 10 32 21 46 49 42 84-36 13-74 11-114-8-42-20-65-45-77-86z"></path>
+    <section id="agentSection" class="card agent-section is-hidden" hidden>
+      <div class="agent-header">
+        <div>
+          <p class="demo-controls-label">Agent assist layer</p>
+          <h2>Control note</h2>
+        </div>
+        <span id="agentMode" class="status-pill agent">Observe only</span>
+      </div>
+      <p id="agentSummary">Run the agent assisted scenario to see the control layer explain the routing failure.</p>
+      <ol id="agentSteps" class="agent-steps"></ol>
+      <div id="agentRecommendation" class="agent-recommendation"></div>
 
-              <path id="flowCloudflare" class="flow-line" d="M159 239 C290 157, 388 151, 515 211 S725 260, 830 235"></path>
-              <path id="flowFastly" class="flow-line secondary" d="M145 290 C296 332, 397 276, 521 256 S724 188, 842 190"></path>
-              <path id="flowCloudFront" class="flow-line tertiary" d="M181 211 C356 236, 404 90, 554 132 S766 143, 888 309"></path>
-              <path id="flowPeer" class="flow-line peer-flow" d="M318 350 C454 425, 590 420, 768 358"></path>
-
-              <g class="map-node home-node" transform="translate(488 236)"><circle r="16"></circle><text x="24" y="5">Flareless</text></g>
-              <g id="nodeCloudflare" class="map-node provider-node" transform="translate(156 239)"><circle r="12"></circle><text x="21" y="5">Cloudflare</text></g>
-              <g id="nodeFastly" class="map-node provider-node" transform="translate(354 316)"><circle r="12"></circle><text x="21" y="5">Fastly</text></g>
-              <g id="nodeCloudFront" class="map-node provider-node" transform="translate(813 231)"><circle r="12"></circle><text x="21" y="5">CloudFront</text></g>
-              <g class="map-node peer-node" transform="translate(768 358)"><circle r="12"></circle><text x="21" y="5">Micro CDN peers</text></g>
-              <g class="map-node edge-node" transform="translate(252 182)"><circle r="7"></circle></g>
-              <g class="map-node edge-node" transform="translate(604 177)"><circle r="7"></circle></g>
-              <g class="map-node edge-node" transform="translate(232 383)"><circle r="7"></circle></g>
-              <g class="map-node edge-node" transform="translate(890 388)"><circle r="7"></circle></g>
-            </svg>
-
-            <div id="outageBadge" class="outage-badge">
-              <span>Detected outage</span>
-              <strong>None</strong>
-            </div>
-          </div>
-        </article>
-
-        <aside class="right-stack">
-          <article class="panel cost-panel">
-            <div class="panel-header compact">
-              <div>
-                <p class="panel-kicker">Provider intelligence</p>
-                <h2>Cost Optimization Index</h2>
-              </div>
-              <span class="small-pill">Last 34 hours</span>
-            </div>
-            <div class="bar-chart" aria-label="Provider cost optimization chart">
-              <div class="bar-item"><div class="bar" style="--bar-size: 91%"></div><span>Cloudflare</span></div>
-              <div class="bar-item"><div class="bar" style="--bar-size: 64%"></div><span>Fastly</span></div>
-              <div class="bar-item"><div class="bar" style="--bar-size: 82%"></div><span>CloudFront</span></div>
-            </div>
-          </article>
-
-          <article class="panel simulate-panel">
-            <p class="panel-kicker">Trust building sandbox</p>
-            <h2>Simulate outage</h2>
-            <label for="outageSelect">Select provider to fail</label>
-            <select id="outageSelect">
-              <option value="">Select Provider to Fail</option>
-              <option value="Cloudflare">Cloudflare timeout</option>
-              <option value="Fastly">Fastly HTTP 429</option>
-              <option value="CloudFront">CloudFront 503</option>
-            </select>
-            <div class="button-row">
-              <button id="applyOutage" class="primary-button" type="button">Apply</button>
-              <button id="resetOutage" class="ghost-button" type="button">Reset</button>
-            </div>
-          </article>
-        </aside>
-      </section>
-
-      <section class="provider-grid" aria-label="Normalized CDN provider health">
-        <article id="providerCloudflare" class="provider-card">
-          <span class="provider-logo">◒</span>
-          <strong>Cloudflare</strong>
-          <span class="provider-status good">Online</span>
-          <small>p95 latency <b id="cloudflareLatency">19 ms</b></small>
-        </article>
-        <article id="providerFastly" class="provider-card">
-          <span class="provider-logo">△</span>
-          <strong>Fastly</strong>
-          <span class="provider-status good">Online</span>
-          <small>p95 latency <b id="fastlyLatency">26 ms</b></small>
-        </article>
-        <article id="providerCloudFront" class="provider-card">
-          <span class="provider-logo">⬢</span>
-          <strong>CloudFront</strong>
-          <span class="provider-status good">Online</span>
-          <small>p95 latency <b id="cloudfrontLatency">31 ms</b></small>
-        </article>
-        <article id="providerPeer" class="provider-card peer-card">
-          <span class="provider-logo">✺</span>
-          <strong>Micro CDN</strong>
-          <span class="provider-status good">Hash verified</span>
-          <small>verified objects <b id="peerIntegrity">100%</b></small>
-        </article>
-      </section>
-
-      <section class="workbench-grid">
-        <article id="policy" class="panel policy-builder">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Provider neutral rules</p>
-              <h2>Policy &amp; Rule Engine Builder</h2>
-            </div>
-            <button id="testPolicy" class="ghost-button" type="button">Test policy</button>
-          </div>
-
-          <div class="rule-card">
-            <div class="rule-row">
-              <span class="rule-label">IF</span>
-              <select id="conditionStatus"><option>HTTP status is 5xx</option><option>Latency &gt; 500 ms</option><option>Provider timeout</option></select>
-              <span class="rule-join">AND</span>
-              <select id="conditionProvider"><option>Provider == Primary</option><option>Provider == Cloudflare</option><option>Provider == Fastly</option></select>
-            </div>
-            <div class="rule-row">
-              <span class="rule-label">THEN</span>
-              <select id="actionRoute"><option>Route to Micro CDN</option><option>Route to next CDN</option><option>Block before origin</option></select>
-              <span id="policyTestResult" class="small-pill">Not tested</span>
-            </div>
-          </div>
-
-          <div class="code-toolbar" aria-label="Policy code view">
-            <span>View as code</span>
-            <div class="segmented" role="group" aria-label="Policy code format">
-              <button class="format-button is-active" data-policy-format="yaml" type="button">YAML</button>
-              <button class="format-button" data-policy-format="json" type="button">JSON</button>
-            </div>
-          </div>
-          <pre id="policyCode" class="code-block"></pre>
-        </article>
-
-        <article id="triage" class="panel triage-panel">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Human in the loop</p>
-              <h2>Agent Recommendation Inbox</h2>
-            </div>
-            <span id="approvalCount" class="small-pill warning">1 pending</span>
-          </div>
-
-          <div class="ticket-card">
-            <div class="ticket-header">
-              <strong id="ticketTitle">No active incident</strong>
-              <span id="ticketSeverity" class="severity good">Healthy</span>
-            </div>
-            <p id="ticketSummary">All providers are within policy. Simulate an outage to generate an approval manifest.</p>
-            <div class="diff-grid" aria-label="Routing diff before and after recommendation">
-              <div><span>Before</span><pre id="beforeDiff">primary: Cloudflare\nfallback: Fastly\npeer: enabled</pre></div>
-              <div><span>After</span><pre id="afterDiff">primary: Cloudflare\nfallback: Fastly\npeer: enabled</pre></div>
-            </div>
-            <div class="button-row">
-              <button id="approveTicket" class="primary-button" type="button">Approve</button>
-              <button id="rejectTicket" class="danger-button" type="button">Reject</button>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section id="peers" class="trust-grid">
-        <article class="panel peer-fleet-panel">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Decentralized fallback</p>
-              <h2>Micro CDN Trust Network</h2>
-            </div>
-            <span class="small-pill">23 peers</span>
-          </div>
-
-          <div class="trust-metrics">
-            <div><span>Uptime</span><strong>99.99%</strong></div>
-            <div><span>Integrity</span><strong>Hash Verified</strong></div>
-            <div><span>Egress saved today</span><strong>14 TB</strong></div>
-          </div>
-
-          <div class="fleet-table" role="table" aria-label="Micro CDN peer node fleet">
-            <div class="fleet-row fleet-head" role="row"><span>Peer</span><span>Status</span><span>Storage</span><span>Integrity</span></div>
-            <div class="fleet-row" role="row"><span>hashed3365627006...</span><span class="online-dot">Online</span><span>250 MB</span><span>Hash verified</span></div>
-            <div class="fleet-row" role="row"><span>hashed5964045005...</span><span class="online-dot">Online</span><span>250 MB</span><span>Hash verified</span></div>
-            <div class="fleet-row" role="row"><span>hashed3320052003...</span><span class="online-dot">Online</span><span>500 MB</span><span>Hash verified</span></div>
-          </div>
-        </article>
-
-        <article class="panel graph-panel">
-          <div class="panel-header compact">
-            <div>
-              <p class="panel-kicker">Proof of safety</p>
-              <h2>Peer verification log</h2>
-            </div>
-            <span class="small-pill good">0 tampered bytes</span>
-          </div>
-          <svg class="mini-graph" viewBox="0 0 360 170" role="img" aria-label="Peer traffic offload trend">
-            <polyline class="graph-grid-line" points="0,135 360,135"></polyline>
-            <polyline class="graph-grid-line" points="0,95 360,95"></polyline>
-            <polyline class="graph-grid-line" points="0,55 360,55"></polyline>
-            <path class="graph-fill" d="M0 132 L26 130 L52 119 L78 125 L104 105 L130 111 L156 93 L182 97 L208 70 L234 83 L260 61 L286 68 L312 48 L338 56 L360 42 L360 170 L0 170 Z"></path>
-            <polyline class="graph-line" points="0,132 26,130 52,119 78,125 104,105 130,111 156,93 182,97 208,70 234,83 260,61 286,68 312,48 338,56 360,42"></polyline>
-          </svg>
-          <div class="verification-list">
-            <p><strong>Verifiable seed:</strong> Merkle manifest accepted for Micro CDN room.</p>
-            <p><strong>Verifiable event:</strong> Chunk hash matched manifest before delivery.</p>
-            <p><strong>Verifiable peer:</strong> Bad payload rejected before response.</p>
-          </div>
-        </article>
-      </section>
-
-      <section id="audit" class="panel audit-panel">
-        <div class="panel-header">
+      <div id="routePolicyDemo" class="route-policy-demo" aria-label="Agent assisted route policy simulation">
+        <div class="route-policy-demo-header">
           <div>
-            <p class="panel-kicker">Operator confidence</p>
-            <h2>Real time audit log</h2>
+            <p class="demo-controls-label">Suggested policy demo</p>
+            <h2>Apply route policy simulation</h2>
           </div>
-          <span class="small-pill">Append only</span>
+          <span id="policyDemoStatus" class="status-pill agent">Ready</span>
         </div>
-        <ol id="auditLog" class="audit-log" aria-live="polite"></ol>
-      </section>
-    </main>
-  </div>
 
+        <svg class="policy-svg" viewBox="0 0 760 280" role="img" aria-labelledby="policySvgTitle policySvgDescription">
+          <title id="policySvgTitle">Agent assisted CDN policy playback</title>
+          <desc id="policySvgDescription">A route policy diagram showing CDN A, CDN B, CDN C, peer delivery, the agent assist observer, and the suggested policy result.</desc>
+
+          <line class="policy-line" x1="90" y1="150" x2="660" y2="150"></line>
+          <line class="policy-observe-line" x1="380" y1="88" x2="380" y2="128"></line>
+          <line class="policy-observe-line" x1="380" y1="88" x2="270" y2="128"></line>
+          <line class="policy-observe-line" x1="380" y1="88" x2="490" y2="128"></line>
+
+          <g id="policyUser" class="policy-node" transform="translate(90 150)"><circle r="34"></circle><text y="5">User</text></g>
+          <g id="policyCdnA" class="policy-node" transform="translate(210 150)"><circle r="34"></circle><text y="0">CDN A</text><text class="policy-node-note" y="17">timeout</text></g>
+          <g id="policyCdnB" class="policy-node" transform="translate(330 150)"><circle r="34"></circle><text y="0">CDN B</text><text class="policy-node-note" y="17">429</text></g>
+          <g id="policyCdnC" class="policy-node" transform="translate(450 150)"><circle r="34"></circle><text y="0">CDN C</text><text class="policy-node-note" y="17">500</text></g>
+          <g id="policyPeer" class="policy-node" transform="translate(570 150)"><circle r="34"></circle><text y="0">Peer</text><text class="policy-node-note" y="17">verified</text></g>
+          <g id="policyDelivered" class="policy-node" transform="translate(690 150)"><circle r="34"></circle><text y="5">Done</text></g>
+          <g id="policyAgent" class="policy-agent-node" transform="translate(380 58)"><rect x="-82" y="-29" width="164" height="58" rx="18"></rect><text y="-4">Agent assist</text><text class="policy-node-note" y="15">observe and recommend</text></g>
+          <g id="policySuggestion" class="policy-suggestion-node" transform="translate(380 238)"><rect x="-170" y="-28" width="340" height="56" rx="18"></rect><text y="-4">Suggested route policy</text><text class="policy-node-note" y="15">cool down CDN A, keep peer enabled</text></g>
+        </svg>
+
+        <div id="policyDemoText" class="policy-demo-text">Press play to show the agent assisted policy recommendation as a visual route simulation.</div>
+        <div class="policy-demo-actions">
+          <button id="applyAgentPolicy" class="agent-apply" type="button">Play route policy simulation</button>
+          <button id="applyAgentSuggestion" class="agent-apply agent-suggestion-apply is-hidden" type="button" hidden>Apply agent suggestion</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Response headers</h2>
+      <pre id="headers">Run a scenario to see route explanation headers.</pre>
+    </section>
+
+    <section class="card note">
+      <h2>What is happening</h2>
+      <p id="scenarioExplanation">
+        Choose a static test above to see what Flareless is proving in that routing path.
+      </p>
+    </section>
+
+    <section class="card note">
+      <h2>Route policy model</h2>
+      <p>
+        Flareless routes are independent provider paths, and each route has an explicit policy. A route policy decides which providers are allowed, whether peer fallback is allowed, whether origin fallback is allowed, and whether a request should stop before origin.
+      </p>
+      <p>
+        Video routes allow peer fallback and block origin fallback. Private routes block both peer and origin fallback. Origin allowed routes skip peer fallback and allow origin fallback as a controlled last resort. The agent assist layer does not replace this fast routing path. It observes results, explains the failure chain, and can recommend bounded policy changes for review.
+      </p>
+    </section>
+
+    <section id="peerSection" class="peer-premium is-hidden" aria-labelledby="peerNetworkTitle" hidden>
+      <div class="peer-premium-copy">
+        <p class="eyebrow">Peer assisted delivery</p>
+        <h2 id="peerNetworkTitle">Every extra device makes the recovery path stronger.</h2>
+        <p>
+          When CDN routes break, Flareless can recover through a living mesh of approved public content. More users means more possible paths, more reach, and better resilience when the normal edge is having a bad day.
+        </p>
+      </div>
+
+      <div class="mesh-card" aria-label="Peer assisted mesh diagram">
+        <div class="mesh-orbital">
+          <div class="mesh-ring"></div>
+          <div class="mesh-link link-a"></div>
+          <div class="mesh-link link-b"></div>
+          <div class="mesh-link link-c"></div>
+          <div class="mesh-link link-d"></div>
+          <div class="mesh-link link-e"></div>
+          <div class="mesh-link link-f"></div>
+          <div class="mesh-link link-g"></div>
+          <div class="mesh-link link-h"></div>
+          <div class="mesh-center"><span>Flareless</span><strong>Peer mesh</strong></div>
+          <div class="orbit-node orbit-a"><span>Phone</span><strong>User A</strong></div>
+          <div class="orbit-node orbit-b"><span>Laptop</span><strong>User B</strong></div>
+          <div class="orbit-node orbit-c"><span>Tablet</span><strong>User C</strong></div>
+          <div class="orbit-node orbit-d"><span>Desktop</span><strong>User D</strong></div>
+          <div class="orbit-node orbit-e"><span>Phone</span><strong>User E</strong></div>
+          <div class="orbit-node orbit-f"><span>Mini node</span><strong>User F</strong></div>
+          <div class="orbit-node orbit-g"><span>NAS</span><strong>User G</strong></div>
+          <div class="orbit-node orbit-h"><span>Browser</span><strong>User H</strong></div>
+        </div>
+      </div>
+
+      <div class="peer-metrics">
+        <article><span>01</span><strong>More participants</strong><p>Each opted in user adds another possible path for approved public chunks.</p></article>
+        <article><span>02</span><strong>More recovery paths</strong><p>If a CDN fails, traffic can try another CDN, then peer assisted delivery.</p></article>
+        <article><span>03</span><strong>Future micro CDN mode</strong><p>Some peers may later opt into a stronger micro CDN mode, where stable devices cache more approved public content and help carry heavier traffic when demand grows.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <script src="./presence.js" type="module"></script>
   <script src="./app.js" type="module"></script>
+  <script src="./agent-policy.js" type="module"></script>
 </body>
 </html>
