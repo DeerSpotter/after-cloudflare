@@ -13,21 +13,25 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 try:
-    from osiris_map_assets import OSIRIS_PALETTE, OSIRIS_TILE_STYLE_ASSETS, OSIRIS_WORLD_RINGS, ROUTE_NODES
+    from osiris_map_assets import (
+        OSIRIS_BOUNDARY_LINES,
+        OSIRIS_PALETTE,
+        OSIRIS_TILE_STYLE_ASSETS,
+        OSIRIS_WORLD_RINGS,
+        ROUTE_NODES,
+    )
 except ImportError:  # pragma: no cover - lets this file compile alone in isolated editors.
     OSIRIS_PALETTE = {
-        "ocean0": "#3b4d57", "ocean1": "#283640", "ocean2": "#111923", "land": "#05080a",
-        "coast": "#607784", "route": "#1980cd", "green": "#00f08a", "cyan": "#24dce9",
-        "gold": "#d7b739", "red": "#dd2731", "orange": "#d56a00", "magenta": "#e83b7f",
+        "ocean0": "#3b4d57", "ocean1": "#283640", "ocean2": "#111923", "land": "#101923",
+        "land2": "#172430", "coast": "#607784", "country": "#345165", "route": "#1980cd",
+        "green": "#00f08a", "cyan": "#24dce9", "gold": "#d7b739", "red": "#dd2731",
+        "orange": "#d56a00", "magenta": "#e83b7f",
     }
     OSIRIS_TILE_STYLE_ASSETS = {}
+    OSIRIS_BOUNDARY_LINES = []
     OSIRIS_WORLD_RINGS = [
-        [[[-168, 72], [-135, 61], [-123, 42], [-106, 27], [-86, 24], [-73, 41], [-56, 57], [-94, 70], [-148, 73], [-168, 72]]],
-        [[[-81, 12], [-61, 2], [-44, -18], [-55, -43], [-67, -55], [-76, -28], [-81, 12]]],
-        [[[-17, 35], [27, 31], [50, 2], [31, -34], [2, -24], [-17, 18], [-17, 35]]],
-        [[[-11, 36], [2, 59], [37, 62], [44, 49], [33, 39], [18, 36], [4, 41], [-11, 36]]],
-        [[[35, 32], [70, 56], [128, 62], [160, 49], [151, 31], [105, 8], [69, 18], [35, 32]]],
-        [[[113, -12], [133, -10], [153, -24], [147, -39], [122, -38], [112, -28], [113, -12]]],
+        [[[-168, 72], [-155, 71], [-146, 69], [-138, 70], [-130, 68], [-124, 65], [-122, 58], [-132, 55], [-137, 50], [-128, 49], [-124, 47], [-124, 42], [-117, 34], [-111, 31], [-106, 31], [-103, 25], [-97, 22], [-89, 21], [-82, 24], [-80, 26], [-82, 30], [-81, 32], [-76, 35], [-75, 39], [-70, 43], [-66, 45], [-61, 49], [-56, 52], [-54, 58], [-61, 62], [-69, 60], [-74, 66], [-84, 70], [-96, 74], [-112, 75], [-125, 72], [-140, 73], [-155, 73], [-168, 72]]],
+        [[[-81, 12], [-75, 10], [-70, 8], [-66, 4], [-60, 5], [-52, 0], [-45, -2], [-38, -8], [-35, -15], [-39, -23], [-43, -30], [-48, -38], [-54, -46], [-62, -53], [-68, -55], [-72, -50], [-72, -43], [-75, -35], [-73, -27], [-78, -18], [-80, -7], [-79, 2], [-81, 12]]],
     ]
     ROUTE_NODES = {
         "client-us": {"label": "User traffic", "lat": 39.5, "lon": -98.3, "kind": "client"},
@@ -96,7 +100,7 @@ class ApiClient:
 
 
 class OsirisRouteMap(tk.Canvas):
-    """Offline 2D route map using the same lightweight OSIRIS fallback assets."""
+    """Offline 2D route map using actual world geometry and OSIRIS dark-map styling."""
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master, background="#02030a", highlightthickness=0, borderwidth=0)
@@ -112,10 +116,15 @@ class OsirisRouteMap(tk.Canvas):
     def project(self, lat: float, lon: float) -> tuple[float, float]:
         width = max(self.winfo_width(), 1)
         height = max(self.winfo_height(), 1)
-        x = (lon + 180.0) / 360.0 * width
-        lat = max(-84.0, min(84.0, lat))
-        merc = math.log(math.tan(math.pi / 4.0 + math.radians(lat) / 2.0))
-        y = height / 2.0 - (width * merc / (2.0 * math.pi))
+        pad_x = width * 0.04
+        pad_y = height * 0.08
+        usable_w = width - pad_x * 2
+        usable_h = height - pad_y * 2
+        x = pad_x + (lon + 180.0) / 360.0 * usable_w
+        lat = max(-82.0, min(82.0, lat))
+        # Equirectangular reads much closer to the reference command center art
+        # than the compressed Mercator fallback that made the map look fake.
+        y = pad_y + (82.0 - lat) / 164.0 * usable_h
         return x, y
 
     def node_point(self, node_id: str) -> tuple[float, float]:
@@ -126,9 +135,10 @@ class OsirisRouteMap(tk.Canvas):
         self.delete("all")
         width = max(self.winfo_width(), 1)
         height = max(self.winfo_height(), 1)
-        self.create_rectangle(0, 0, width, height, fill="#02030a", outline="")
+        self.draw_ocean(width, height)
         self.draw_grid(width, height)
         self.draw_world()
+        self.draw_boundaries()
         self.draw_routes()
         self.draw_nodes()
         self.create_text(
@@ -137,25 +147,43 @@ class OsirisRouteMap(tk.Canvas):
             anchor="nw",
             fill=OSIRIS_PALETTE["gold"],
             font=("Consolas", 10, "bold"),
-            text="OSIRIS 2D MAP ASSETS · OFFLINE VECTOR FALLBACK",
+            text="OSIRIS 2D MAP ASSETS · ACTUAL WORLD GEOMETRY",
         )
+
+    def draw_ocean(self, width: int, height: int) -> None:
+        self.create_rectangle(0, 0, width, height, fill="#020812", outline="")
+        bands = ["#07111b", "#0a1621", "#0c1a26", "#0a1420", "#060c16"]
+        band_h = max(1, height // len(bands))
+        for index, color in enumerate(bands):
+            self.create_rectangle(0, index * band_h, width, (index + 1) * band_h, fill=color, outline="")
+        self.create_oval(-width * 0.25, -height * 0.55, width * 1.25, height * 1.55, outline="#142636", width=2)
+        self.create_oval(width * 0.12, height * 0.08, width * 0.88, height * 0.92, outline="#0f2733", width=1)
 
     def draw_grid(self, width: int, height: int) -> None:
         for x in range(0, width, 52):
-            self.create_line(x, 0, x, height, fill="#0f1a24")
+            self.create_line(x, 0, x, height, fill="#102230")
         for y in range(0, height, 52):
-            self.create_line(0, y, width, y, fill="#0f1a24")
-        self.create_oval(-width * 0.15, -height * 0.45, width * 1.15, height * 1.45, outline="#142636", width=2)
+            self.create_line(0, y, width, y, fill="#102230")
 
     def draw_world(self) -> None:
         for feature in OSIRIS_WORLD_RINGS:
-            for ring in feature:
+            for index, ring in enumerate(feature):
                 points: list[float] = []
                 for lon, lat in ring:
                     x, y = self.project(lat, lon)
                     points.extend([x, y])
                 if len(points) >= 6:
-                    self.create_polygon(points, fill=OSIRIS_PALETTE["land"], outline=OSIRIS_PALETTE["coast"], width=1)
+                    fill = OSIRIS_PALETTE.get("land2", OSIRIS_PALETTE["land"]) if index % 2 else OSIRIS_PALETTE["land"]
+                    self.create_polygon(points, fill=fill, outline=OSIRIS_PALETTE["coast"], width=1, smooth=False)
+
+    def draw_boundaries(self) -> None:
+        for line in OSIRIS_BOUNDARY_LINES:
+            points: list[float] = []
+            for lon, lat in line:
+                x, y = self.project(lat, lon)
+                points.extend([x, y])
+            if len(points) >= 4:
+                self.create_line(points, fill=OSIRIS_PALETTE.get("country", "#345165"), width=1, dash=(2, 5), smooth=True)
 
     def attempt_status(self) -> dict[str, str]:
         return {str(item.get("provider")): str(item.get("result")) for item in self.trace.get("attempts", [])}
@@ -180,9 +208,11 @@ class OsirisRouteMap(tk.Canvas):
         x2, y2 = self.node_point(end_id)
         color = OSIRIS_PALETTE["green"] if "SUCCESS" in result or "ALLOWED" in result else OSIRIS_PALETTE["red"]
         dash = () if "SUCCESS" in result else (8, 6)
-        self.create_line(x1, y1, x2, y2, fill=color, width=3, dash=dash, smooth=True, splinesteps=18)
-        mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
-        self.create_oval(mx - 3, my - 3, mx + 3, my + 3, fill=color, outline="")
+        mid_x = (x1 + x2) / 2.0
+        mid_y = min(y1, y2) - max(24.0, abs(x2 - x1) * 0.10)
+        self.create_line(x1, y1, mid_x, mid_y, x2, y2, fill="#063b31", width=7, smooth=True, splinesteps=24)
+        self.create_line(x1, y1, mid_x, mid_y, x2, y2, fill=color, width=3, dash=dash, smooth=True, splinesteps=24)
+        self.create_oval(mid_x - 3, mid_y - 3, mid_x + 3, mid_y + 3, fill=color, outline="")
 
     def draw_nodes(self) -> None:
         status = self.attempt_status()
@@ -202,10 +232,23 @@ class OsirisRouteMap(tk.Canvas):
             else:
                 fill = "#dbe4ff"
             radius = 10 if kind != "director" else 14
+            self.create_oval(x - radius - 4, y - radius - 4, x + radius + 4, y + radius + 4, fill="#08111c", outline=color_for_glow(fill), width=2)
             self.create_oval(x - radius, y - radius, x + radius, y + radius, fill=fill, outline="#ffffff", width=1)
             self.create_text(x + 14, y - 12, anchor="nw", fill="#e9f2ff", font=("Consolas", 9, "bold"), text=str(node["label"]))
             if result:
                 self.create_text(x + 14, y + 4, anchor="nw", fill="#9fb4c7", font=("Consolas", 8), text=result)
+
+
+def color_for_glow(color: str) -> str:
+    if color == OSIRIS_PALETTE["red"]:
+        return "#5a1721"
+    if color == OSIRIS_PALETTE["cyan"]:
+        return "#115963"
+    if color == OSIRIS_PALETTE["gold"]:
+        return "#705d13"
+    if color == OSIRIS_PALETTE["green"]:
+        return "#126145"
+    return "#2d3950"
 
 
 class FlarelessConsole(tk.Tk):
@@ -281,7 +324,7 @@ class FlarelessConsole(tk.Tk):
         header = ttk.Frame(self, padding=(16, 14, 16, 6))
         header.pack(fill=tk.X)
         ttk.Label(header, text="Flareless Release Console", style="Title.TLabel").pack(side=tk.LEFT)
-        ttk.Label(header, text="Python local build · OSIRIS 2D map assets · no production claims", style="Kicker.TLabel").pack(side=tk.LEFT, padx=18)
+        ttk.Label(header, text="Python local build · OSIRIS actual world map geometry · no production claims", style="Kicker.TLabel").pack(side=tk.LEFT, padx=18)
         ttk.Button(header, text="Refresh", command=self.refresh_all).pack(side=tk.RIGHT)
 
         controls = ttk.Frame(self, padding=(16, 6, 16, 10))
@@ -546,7 +589,7 @@ class FlarelessConsole(tk.Tk):
             },
             "mapAssets": {
                 "source": "DeerSpotter/osiris-v2",
-                "offlineVectorFallback": True,
+                "offlineWorldGeometry": True,
                 "tileStyleMetadata": OSIRIS_TILE_STYLE_ASSETS,
             },
         }
@@ -652,7 +695,7 @@ class FlarelessConsole(tk.Tk):
     def show_about(self) -> None:
         messagebox.showinfo(
             "Flareless Release Console",
-            "Local Python release console for route failure, agent recommendations, operator approvals, audit logs, and Micro CDN trust boundaries. The map uses OSIRIS v2 offline 2D fallback assets.",
+            "Local Python release console for route failure, agent recommendations, operator approvals, audit logs, and Micro CDN trust boundaries. The map uses OSIRIS v2 actual world geometry with dark map styling.",
         )
 
 
