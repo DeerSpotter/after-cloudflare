@@ -17,9 +17,11 @@ __APP_CSS__
       <nav class="nav-list">
         <button class="nav-item active" data-view="dashboard">Dashboard</button>
         <button class="nav-item" data-view="traffic">Traffic</button>
+        <button class="nav-item" data-view="providers">Providers</button>
         <button class="nav-item" data-view="policy">Policies</button>
         <button class="nav-item" data-view="approvals">Approvals</button>
         <button class="nav-item" data-view="peers">Peers</button>
+        <button class="nav-item" data-view="evidence">Evidence</button>
         <button class="nav-item" data-view="logs">Logs</button>
         <button class="nav-item" data-view="settings">Settings</button>
       </nav>
@@ -28,10 +30,10 @@ __APP_CSS__
     <main class="stage">
       <header class="topbar">
         <h1>Flareless</h1>
-        <div class="status" id="globalStatus">STATUS: OPTIMAL</div>
+        <div class="status" id="globalStatus">STATUS: PAUSED</div>
         <div class="bandwidth">Aggregate Real Time Bandwidth: <span id="bandwidthValue">226.2 TB</span></div>
         <span class="pill">paused startup</span>
-        <span class="pill">operator controlled</span>
+        <span class="pill" id="activeProviderPill">active: none</span>
       </header>
 
       <section id="dashboard" class="view active">
@@ -40,7 +42,7 @@ __APP_CSS__
             <div class="card-head map-head">
               <div>
                 <div class="card-title">Global Smart Traffic & Failover Map</div>
-                <div class="card-subtitle">MapLibre nodes and route arcs stay anchored while pan and zoom move the map.</div>
+                <div class="card-subtitle">Animated MapLibre route arcs, provider cards, and nodes are bound to map coordinates.</div>
               </div>
               <div class="toolbar">
                 <select id="scenarioSelect" aria-label="Scenario">
@@ -60,9 +62,6 @@ __APP_CSS__
               </div>
             </div>
             <div class="map-wrap"><div id="map"></div></div>
-            <div class="provider-tip tip-cloudflare"><b>Cloudflare</b><br><span class="dot"></span>Latency 15 ms</div>
-            <div class="provider-tip tip-aws"><b>AWS CloudFront</b><br><span class="dot"></span>Latency 22 ms</div>
-            <div class="provider-tip tip-fastly"><b>Fastly</b><br><span class="dot"></span>Latency 12 ms</div>
             <div class="outage-badge">Detected Outage:<br><span id="routeReason">None</span></div>
           </article>
 
@@ -87,10 +86,7 @@ __APP_CSS__
 
             <article class="card blue compact-card">
               <div class="card-head">
-                <div>
-                  <div class="card-title">Micro CDN Trust Network</div>
-                  <div class="card-subtitle">Peer integrity summary</div>
-                </div>
+                <div><div class="card-title">Micro CDN Trust Network</div><div class="card-subtitle">Peer integrity summary</div></div>
               </div>
               <div class="trust-mini">
                 <div><span>Uptime</span><b>99.99%</b></div>
@@ -102,61 +98,25 @@ __APP_CSS__
         </div>
       </section>
 
-      <section id="traffic" class="view">
-        <article class="card page-card">
-          <div class="card-head"><div><div class="card-title">Traffic Overview</div><div class="card-subtitle">Provider health and route attempts</div></div></div>
-          <div class="page-body"><pre id="trafficText">Press Refresh or Run on Dashboard.</pre></div>
-        </article>
-      </section>
+      <section id="traffic" class="view"><article class="card page-card"><div class="card-head"><div><div class="card-title">Traffic Overview</div><div class="card-subtitle">Provider health and route attempts</div></div></div><div class="page-body"><pre id="trafficText">Press Refresh or Run on Dashboard.</pre></div></article></section>
 
-      <section id="policy" class="view">
-        <article class="card blue page-card">
-          <div class="card-head"><div><div class="card-title">Policy & Rule Engine Builder</div><div class="card-subtitle">Automating mirrored routing and traffic routing.</div></div><button>+ New rule</button></div>
-          <div class="page-body">
-            <div class="rule-card"><b>IF</b><div class="rule-line"><button>404 rate &gt; 2%</button><span>AND</span><button>Provider == CloudFront</button></div><b>THEN</b><div class="rule-line"><button>Route to CDN X</button><span class="spacer"></span><button>YAML</button><button>JSON</button></div><pre class="code-box">code:
-  404_rate: &gt;20-x
-  Provider == CDN-x;</pre></div>
-          </div>
-        </article>
-      </section>
+      <section id="providers" class="view"><article class="card page-card"><div class="card-head"><div><div class="card-title">Provider Health</div><div class="card-subtitle">Normalized status across CDNs</div></div></div><div class="page-body"><div class="table-wrap"><table><thead><tr><th>Provider</th><th>Status</th><th>Latency</th><th>Last result</th><th>Role</th></tr></thead><tbody id="providersTable"></tbody></table></div></div></article></section>
 
-      <section id="approvals" class="view">
-        <div class="split-view">
-          <article class="card page-card"><div class="card-head"><div><div class="card-title">Agent Recommendation Inbox</div><div class="card-subtitle">Human in the loop failover review</div></div></div><div class="page-body"><pre id="approvalText">No recommendations loaded.</pre></div></article>
-          <article class="card blue page-card"><div class="card-head"><div><div class="card-title">Before / After Diff</div><div class="card-subtitle">Planned routing change preview</div></div></div><div class="page-body"><pre id="diffText">Run a degraded scenario to create a recommendation.</pre></div></article>
-        </div>
-      </section>
+      <section id="policy" class="view"><article class="card blue page-card"><div class="card-head"><div><div class="card-title">Policy & Rule Engine Builder</div><div class="card-subtitle">Visual IF / AND / THEN route logic. Save remains disabled until backend persistence exists.</div></div><button id="addConditionBtn">+ Add condition</button><button id="removeConditionBtn">Remove</button><button id="testPolicyBtn" class="primary">Test Policy</button><button id="savePolicyBtn" disabled>Save</button></div><div class="page-body policy-grid"><div class="rule-card"><b>IF</b><div id="conditionList"></div><b>THEN</b><div class="rule-line"><button>Route to next CDN</button><span>THEN</span><button>Hash verified Micro CDN</button></div><div class="format-tabs"><button id="yamlBtn" class="active">YAML</button><button id="jsonBtn">JSON</button></div></div><pre id="policyCode" class="code-box"></pre></div></article></section>
 
-      <section id="peers" class="view">
-        <article class="card blue page-card">
-          <div class="card-head"><div><div class="card-title">Micro CDN Trust Network</div><div class="card-subtitle">Peer integrity and offload confidence</div></div></div>
-          <div class="page-body">
-            <div class="trust-stats"><div><span>Uptime</span><b>99.99%</b></div><div><span>Integrity</span><b>Hash Verified</b></div><div><span>Saved Today</span><b>14TB</b></div></div>
-            <div class="peer-row"><span class="hash">hashed3365627006...</span><span class="ok">Online</span><span>250MB</span><span class="ok">Hash 100%</span></div>
-            <div class="peer-row"><span class="hash">hashed5964045005...</span><span class="ok">Online</span><span>250MB</span><span class="ok">Hash 100%</span></div>
-            <div class="peer-row"><span class="hash">hashed3320052003...</span><span class="ok">Online</span><span>500MB</span><span class="ok">Hash 100%</span></div>
-          </div>
-        </article>
-      </section>
+      <section id="approvals" class="view"><div class="split-view"><article class="card page-card"><div class="card-head"><div><div class="card-title">Agent Recommendation Inbox</div><div class="card-subtitle">Human in the loop failover review</div></div><button id="approveBtn" class="primary">Approve</button><button id="rejectBtn">Reject</button></div><div class="page-body"><div id="approvalCards" class="approval-list">No recommendations loaded.</div></div></article><article class="card blue page-card"><div class="card-head"><div><div class="card-title">Before / After Diff</div><div class="card-subtitle">Planned routing change preview</div></div></div><div class="page-body"><pre id="diffText">Run a degraded scenario to create a recommendation.</pre></div></article></div></section>
 
-      <section id="logs" class="view">
-        <div class="split-view">
-          <article class="card page-card"><div class="card-head"><div><div class="card-title">Route Trace</div><div class="card-subtitle">Current local API route trace</div></div></div><div class="page-body"><pre id="traceText">No trace loaded.</pre></div></article>
-          <article class="card page-card"><div class="card-head"><div><div class="card-title">Audit</div><div class="card-subtitle">Recommendation lifecycle log</div></div></div><div class="page-body"><pre id="auditText">No audit loaded.</pre></div></article>
-        </div>
-      </section>
+      <section id="peers" class="view"><article class="card blue page-card"><div class="card-head"><div><div class="card-title">Micro CDN Trust Network</div><div class="card-subtitle">Peer integrity, rejected peer evidence, and trust boundaries</div></div></div><div class="page-body peer-grid"><div><div class="trust-stats"><div><span>Uptime</span><b>99.99%</b></div><div><span>Integrity</span><b>Hash Verified</b></div><div><span>Saved Today</span><b>14TB</b></div></div><div id="peerList"></div></div><div><div class="mini-graph"><span style="height:50%"></span><span style="height:70%"></span><span style="height:62%"></span><span style="height:86%"></span><span style="height:78%"></span></div><pre id="trustBoundaryText">Trust boundary not loaded.</pre></div></div></article></section>
 
-      <section id="settings" class="view">
-        <article class="card page-card">
-          <div class="card-head"><div><div class="card-title">Settings</div><div class="card-subtitle">Startup remains paused by default</div></div></div>
-          <div class="page-body"><div class="rule-card"><b>Map behavior</b><div class="rule-line"><button>Nodes are MapLibre layers</button><button>Pan and zoom safe</button><button>No static overlay nodes</button></div></div></div>
-        </article>
-      </section>
+      <section id="evidence" class="view"><div class="split-view"><article class="card page-card"><div class="card-head"><div><div class="card-title">Evidence Headers</div><div class="card-subtitle">Generated x-flareless-* headers</div></div></div><div class="page-body"><pre id="headersText">No headers loaded.</pre></div></article><article class="card page-card"><div class="card-head"><div><div class="card-title">Route Trace Evidence</div><div class="card-subtitle">Raw trace JSON</div></div></div><div class="page-body"><pre id="traceEvidenceText">No trace loaded.</pre></div></article></div></section>
+
+      <section id="logs" class="view"><div class="split-view"><article class="card page-card"><div class="card-head"><div><div class="card-title">Route Trace</div><div class="card-subtitle">Current local API route trace</div></div></div><div class="page-body"><pre id="traceText">No trace loaded.</pre></div></article><article class="card page-card"><div class="card-head"><div><div class="card-title">Audit</div><div class="card-subtitle">Recommendation lifecycle log</div></div></div><div class="page-body"><pre id="auditText">No audit loaded.</pre></div></article></div></section>
+
+      <section id="settings" class="view"><article class="card page-card"><div class="card-head"><div><div class="card-title">Settings</div><div class="card-subtitle">Startup remains paused by default</div></div></div><div class="page-body"><div class="rule-card"><b>Map behavior</b><div class="rule-line"><button>Nodes are MapLibre layers</button><button>Pan and zoom safe</button><button>No static overlay nodes</button></div></div></div></article></section>
     </main>
   </div>
-  <script>
-    window.FLARELESS_BASE_URL = "__BASE_URL__";
-  </script>
+  <div id="toast" class="toast"></div>
+  <script>window.FLARELESS_BASE_URL = "__BASE_URL__";</script>
   <script>
 __APP_JS__
   </script>
