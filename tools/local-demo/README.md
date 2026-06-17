@@ -26,21 +26,50 @@ Pause
 If the embedded GUI says pywebview is missing, install it with:
 
 ```bash
-python -m pip install pywebview
+python -m pip install -r tools/local-demo/requirements.txt
 ```
 
 ## Embedded UI source layout
 
-The embedded MapLibre UI is now split into front end component files instead of one large Python string:
+The embedded MapLibre UI is split into front end component files instead of one large Python string:
 
 ```text
 tools/local-demo/ui/index.html
 tools/local-demo/ui/styles.css
 tools/local-demo/ui/app.js
 tools/local-demo/webview_console.py
+tools/local-demo/requirements.txt
 ```
 
 `webview_console.py` starts the local API server, reads the UI files, injects the local base URL, and opens the pywebview window.
+
+## Phase 1 UI scope
+
+Phase 1 focuses on command center visual parity and navigable release UI scaffolding before deeper backend capabilities are added.
+
+Implemented:
+
+```text
+real app shell with top bar and left navigation
+no auto polling on startup
+no scenario run on startup
+MapLibre route map inside Python GUI
+animated route overlay layer
+provider cards anchored to map coordinates
+clickable node popups
+status colors for optimal, degraded, and failed
+separate Traffic, Providers, Policies, Approvals, Peers, Evidence, Logs, and Settings views
+shared front end state object
+provider health table
+approval inbox cards with approve/reject actions
+policy builder controls with add/remove conditions
+YAML/JSON policy preview
+test policy action
+save disabled until backend persistence exists
+Micro CDN peer list, rejected peer handling, and trust boundary display
+evidence headers and route trace views
+toast notifications
+```
 
 ## What changed for the release build
 
