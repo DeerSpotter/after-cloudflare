@@ -34,268 +34,97 @@ const nodes = {
 
 function $(id) { return document.getElementById(id); }
 function nowTime() { return new Date().toLocaleTimeString(); }
-
-function recordEvent(type, payload = {}) {
-  state.events.unshift({ time: nowTime(), type, payload });
-  state.events = state.events.slice(0, 80);
-}
-
-async function api(path, body) {
-  const options = body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" };
-  const response = await fetch(state.baseUrl + path, options);
-  if (!response.ok) throw new Error(`${path} ${response.status}`);
-  return response.json();
-}
-
-function toast(message) {
-  const box = $("toast");
-  if (!box) return;
-  box.textContent = message;
-  box.classList.add("show");
-  setTimeout(() => box.classList.remove("show"), 2200);
-}
-
-function routeArc(from, to) {
-  const output = [];
-  const dx = to.lon - from.lon;
-  const lift = Math.min(32, Math.max(8, Math.abs(dx) * 0.12));
-  for (let step = 0; step <= 48; step += 1) {
-    const t = step / 48;
-    output.push([from.lon + dx * t, from.lat + (to.lat - from.lat) * t + Math.sin(Math.PI * t) * lift]);
-  }
-  return output;
-}
+function recordEvent(type, payload = {}) { state.events.unshift({ time: nowTime(), type, payload }); state.events = state.events.slice(0, 80); }
+function toast(message) { const box = $("toast"); if (!box) return; box.textContent = message; box.classList.add("show"); setTimeout(() => box.classList.remove("show"), 2200); }
+async function api(path, body) { const options = body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : { cache: "no-store" }; const response = await fetch(state.baseUrl + path, options); if (!response.ok) throw new Error(`${path} ${response.status}`); return response.json(); }
 
 function isGood(result) { return (result || "").includes("SUCCESS") || (result || "").includes("ADVERTISES_CONTENT"); }
 function isFailed(result) { return (result || "").match(/TIMEOUT|BLOCKED|ERROR|OFFLINE|DISABLED|NO_HEALTHY|HTTP_/); }
+function routeArc(from, to) { const output = []; const dx = to.lon - from.lon; const lift = Math.min(32, Math.max(8, Math.abs(dx) * 0.12)); for (let step = 0; step <= 48; step += 1) { const t = step / 48; output.push([from.lon + dx * t, from.lat + (to.lat - from.lat) * t + Math.sin(Math.PI * t) * lift]); } return output; }
+function nodeColor(id, result, activeProvider) { if (id === activeProvider) return "#46f0a0"; if (isFailed(result)) return "#f04455"; if (nodes[id]?.kind === "director") return "#f6b44c"; if (nodes[id]?.kind === "peer") return "#62c8ff"; return "#dbe7ff"; }
+function replayTrace(trace = state.routeTrace, index = null) { if (index === null) return trace; const attempts = trace.attempts || []; const partialAttempts = attempts.slice(0, Math.max(0, index)); const finalAttempt = partialAttempts[partialAttempts.length - 1]; return { ...trace, attempts: partialAttempts, finalStatus: finalAttempt ? { provider: finalAttempt.provider, reason: finalAttempt.result, outcome: isGood(finalAttempt.result) ? "success" : "in-progress" } : { provider: "flareless", reason: "WAITING", outcome: "in-progress" } }; }
+function routeSegments(trace) { const attempts = trace.attempts || []; const activeProvider = (trace.finalStatus || {}).provider || ""; const segments = [{ from: "client-us", to: "flareless", result: "PROVIDER_SUCCESS" }]; let last = "flareless"; for (const attempt of attempts) { if (!nodes[attempt.provider]) continue; segments.push({ from: last, to: attempt.provider, result: attempt.result || "UNKNOWN" }); last = attempt.provider; } if (activeProvider && nodes[activeProvider]) segments.push({ from: activeProvider, to: "client-us", result: "PROVIDER_SUCCESS" }); return segments; }
+function buildMapGeoJson(trace, providers) { const attempts = trace.attempts || []; const activeProvider = (trace.finalStatus || {}).provider || ""; const resultByProvider = Object.fromEntries(attempts.map((attempt) => [attempt.provider, attempt.result])); const features = []; for (const segment of routeSegments(trace)) { const from = nodes[segment.from]; const to = nodes[segment.to]; features.push({ type: "Feature", geometry: { type: "LineString", coordinates: routeArc(from, to) }, properties: { kind: "route", good: isGood(segment.result), label: `${from.label} to ${to.label}: ${segment.result}` } }); } const visibleNodes = new Set(["client-us", "flareless", "origin"]); providers.forEach((provider) => visibleNodes.add(provider.name)); attempts.forEach((attempt) => visibleNodes.add(attempt.provider)); if (trace.selectedFallback === "peer-fallback") visibleNodes.add("peer-assisted-edge"); visibleNodes.forEach((id) => { const node = nodes[id]; if (!node) return; features.push({ type: "Feature", geometry: { type: "Point", coordinates: [node.lon, node.lat] }, properties: { kind: "node", id, label: node.label, result: resultByProvider[id] || node.kind, color: nodeColor(id, resultByProvider[id], activeProvider) } }); }); return { type: "FeatureCollection", features }; }
 
-function nodeColor(id, result, activeProvider) {
-  if (id === activeProvider) return "#46f0a0";
-  if (isFailed(result)) return "#f04455";
-  if (nodes[id]?.kind === "director") return "#f6b44c";
-  if (nodes[id]?.kind === "peer") return "#62c8ff";
-  return "#dbe7ff";
-}
-
-function replayTrace(trace = state.routeTrace, index = null) {
-  if (index === null) return trace;
-  const attempts = trace.attempts || [];
-  const partialAttempts = attempts.slice(0, Math.max(0, index));
-  const finalAttempt = partialAttempts[partialAttempts.length - 1];
-  return { ...trace, attempts: partialAttempts, finalStatus: finalAttempt ? { provider: finalAttempt.provider, reason: finalAttempt.result, outcome: isGood(finalAttempt.result) ? "success" : "in-progress" } : { provider: "flareless", reason: "WAITING", outcome: "in-progress" } };
-}
-
-function routeSegments(trace) {
-  const attempts = trace.attempts || [];
-  const activeProvider = (trace.finalStatus || {}).provider || "";
-  const segments = [{ from: "client-us", to: "flareless", result: "PROVIDER_SUCCESS" }];
-  let last = "flareless";
-  for (const attempt of attempts) {
-    if (!nodes[attempt.provider]) continue;
-    segments.push({ from: last, to: attempt.provider, result: attempt.result || "UNKNOWN" });
-    last = attempt.provider;
-  }
-  if (activeProvider && nodes[activeProvider]) segments.push({ from: activeProvider, to: "client-us", result: "PROVIDER_SUCCESS" });
-  return segments;
-}
-
-function buildMapGeoJson(trace, providers) {
-  const attempts = trace.attempts || [];
-  const activeProvider = (trace.finalStatus || {}).provider || "";
-  const resultByProvider = Object.fromEntries(attempts.map((attempt) => [attempt.provider, attempt.result]));
-  const features = [];
-  for (const segment of routeSegments(trace)) {
-    const from = nodes[segment.from];
-    const to = nodes[segment.to];
-    features.push({ type: "Feature", geometry: { type: "LineString", coordinates: routeArc(from, to) }, properties: { kind: "route", good: isGood(segment.result), label: `${from.label} to ${to.label}: ${segment.result}` } });
-  }
-  const visibleNodes = new Set(["client-us", "flareless", "origin"]);
-  providers.forEach((provider) => visibleNodes.add(provider.name));
-  attempts.forEach((attempt) => visibleNodes.add(attempt.provider));
-  if (trace.selectedFallback === "peer-fallback") visibleNodes.add("peer-assisted-edge");
-  visibleNodes.forEach((id) => {
-    const node = nodes[id];
-    if (!node) return;
-    features.push({ type: "Feature", geometry: { type: "Point", coordinates: [node.lon, node.lat] }, properties: { kind: "node", id, label: node.label, result: resultByProvider[id] || node.kind, color: nodeColor(id, resultByProvider[id], activeProvider) } });
-  });
-  return { type: "FeatureCollection", features };
-}
-
-function initMap() {
-  state.map = new maplibregl.Map({ container: "map", style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json", center: [18, 18], zoom: 1.35, attributionControl: false, interactive: true });
-  state.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-  state.map.on("load", addMapLayers);
-}
-
-function addMapLayers() {
-  state.mapReady = true;
-  state.map.addSource("flareless-live", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-  state.map.addLayer({ id: "route-shadow", type: "line", source: "flareless-live", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": "#053a2f", "line-width": 8, "line-opacity": 0.72 } });
-  state.map.addLayer({ id: "routes", type: "line", source: "flareless-live", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": ["case", ["==", ["get", "good"], true], "#46f0a0", "#f04455"], "line-width": 3, "line-opacity": 0.9 } });
-  state.map.addLayer({ id: "routes-flow", type: "line", source: "flareless-live", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": ["case", ["==", ["get", "good"], true], "#b5ffd8", "#ff8793"], "line-width": 2, "line-opacity": 0.9, "line-dasharray": [0.1, 2.2] } });
-  state.map.addLayer({ id: "node-glow", type: "circle", source: "flareless-live", filter: ["==", ["get", "kind"], "node"], paint: { "circle-radius": ["case", ["==", ["get", "id"], "flareless"], 22, 15], "circle-color": ["get", "color"], "circle-opacity": 0.16, "circle-blur": 0.65 } });
-  state.map.addLayer({ id: "nodes", type: "circle", source: "flareless-live", filter: ["==", ["get", "kind"], "node"], paint: { "circle-radius": ["case", ["==", ["get", "id"], "flareless"], 10, 7], "circle-color": ["get", "color"], "circle-stroke-color": "#e8f5ff", "circle-stroke-width": 1.2 } });
-  state.map.addLayer({ id: "labels", type: "symbol", source: "flareless-live", filter: ["==", ["get", "kind"], "node"], layout: { "text-field": ["get", "label"], "text-size": 11, "text-offset": [1.1, -0.7], "text-anchor": "left" }, paint: { "text-color": "#eaf6ff", "text-halo-color": "#07101f", "text-halo-width": 1.2 } });
-  state.map.on("click", "nodes", (event) => {
-    const feature = event.features?.[0];
-    if (!feature) return;
-    new maplibregl.Popup().setLngLat(feature.geometry.coordinates).setHTML(`<b>${feature.properties.label}</b><br>${feature.properties.result}`).addTo(state.map);
-  });
-  animateRouteArcs();
-}
-
-function animateRouteArcs() {
-  setInterval(() => {
-    if (!state.mapReady || !state.map.getLayer("routes-flow")) return;
-    state.animationTick = (state.animationTick + 1) % 18;
-    state.map.setPaintProperty("routes-flow", "line-dasharray", [0.1 + state.animationTick * 0.08, 2.2, 0.1, 1.6]);
-  }, 140);
-}
+function initMap() { state.map = new maplibregl.Map({ container: "map", style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json", center: [18, 18], zoom: 1.35, attributionControl: false, interactive: true }); state.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right"); state.map.on("load", addMapLayers); }
+function addMapLayers() { state.mapReady = true; state.map.addSource("flareless-live", { type: "geojson", data: { type: "FeatureCollection", features: [] } }); state.map.addLayer({ id: "route-shadow", type: "line", source: "flareless-live", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": "#053a2f", "line-width": 8, "line-opacity": 0.72 } }); state.map.addLayer({ id: "routes", type: "line", source: "flareless-live", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": ["case", ["==", ["get", "good"], true], "#46f0a0", "#f04455"], "line-width": 3, "line-opacity": 0.9 } }); state.map.addLayer({ id: "routes-flow", type: "line", source: "flareless-live", filter: ["==", ["get", "kind"], "route"], paint: { "line-color": ["case", ["==", ["get", "good"], true], "#b5ffd8", "#ff8793"], "line-width": 2, "line-opacity": 0.9, "line-dasharray": [0.1, 2.2] } }); state.map.addLayer({ id: "node-glow", type: "circle", source: "flareless-live", filter: ["==", ["get", "kind"], "node"], paint: { "circle-radius": ["case", ["==", ["get", "id"], "flareless"], 22, 15], "circle-color": ["get", "color"], "circle-opacity": 0.16, "circle-blur": 0.65 } }); state.map.addLayer({ id: "nodes", type: "circle", source: "flareless-live", filter: ["==", ["get", "kind"], "node"], paint: { "circle-radius": ["case", ["==", ["get", "id"], "flareless"], 10, 7], "circle-color": ["get", "color"], "circle-stroke-color": "#e8f5ff", "circle-stroke-width": 1.2 } }); state.map.addLayer({ id: "labels", type: "symbol", source: "flareless-live", filter: ["==", ["get", "kind"], "node"], layout: { "text-field": ["get", "label"], "text-size": 11, "text-offset": [1.1, -0.7], "text-anchor": "left" }, paint: { "text-color": "#eaf6ff", "text-halo-color": "#07101f", "text-halo-width": 1.2 } }); state.map.on("click", "nodes", (event) => { const feature = event.features?.[0]; if (!feature) return; new maplibregl.Popup().setLngLat(feature.geometry.coordinates).setHTML(`<b>${feature.properties.label}</b><br>${feature.properties.result}`).addTo(state.map); }); animateRouteArcs(); }
+function animateRouteArcs() { setInterval(() => { if (!state.mapReady || !state.map.getLayer("routes-flow")) return; state.animationTick = (state.animationTick + 1) % 18; state.map.setPaintProperty("routes-flow", "line-dasharray", [0.1 + state.animationTick * 0.08, 2.2, 0.1, 1.6]); }, 140); }
 
 function providerDisplayName(provider) { return nodes[provider.name]?.label || provider.name; }
 function providerStatusClass(provider) { if ((provider.lastResult || "").match(/TIMEOUT|BLOCKED|HTTP_|ERROR|OFFLINE/)) return "failed"; if (provider.status && provider.status !== "healthy") return "degraded"; return "healthy"; }
 function providerBadge(provider) { const cls = providerStatusClass(provider); if (cls === "failed") return '<span class="badge fail">failed</span>'; if (cls === "degraded") return '<span class="badge warn">degraded</span>'; return '<span class="badge">healthy</span>'; }
+function updateProviderMarkers(providers) { if (!state.mapReady) return; for (const provider of providers) { const node = nodes[provider.name]; if (!node) continue; const statusClass = providerStatusClass(provider); const content = `<b>${providerDisplayName(provider)}</b><div class="marker-row"><span class="marker-dot"></span>${provider.latencyMs || "--"} ms · ${provider.lastResult || "standby"}</div>`; if (!state.providerMarkers[provider.name]) { const element = document.createElement("div"); element.className = `provider-marker ${statusClass}`; element.innerHTML = content; state.providerMarkers[provider.name] = new maplibregl.Marker({ element, anchor: "left", offset: [12, -12] }).setLngLat([node.lon, node.lat]).addTo(state.map); } else { const markerElement = state.providerMarkers[provider.name].getElement(); markerElement.className = `provider-marker ${statusClass}`; markerElement.innerHTML = content; state.providerMarkers[provider.name].setLngLat([node.lon, node.lat]); } state.providerMarkers[provider.name].getElement().style.borderColor = provider.name === state.activeProvider ? "rgba(70,240,160,.85)" : "rgba(255,255,255,.14)"; } }
 
-function updateProviderMarkers(providers) {
-  if (!state.mapReady) return;
-  for (const provider of providers) {
-    const node = nodes[provider.name];
-    if (!node) continue;
-    const statusClass = providerStatusClass(provider);
-    const content = `<b>${providerDisplayName(provider)}</b><div class="marker-row"><span class="marker-dot"></span>${provider.latencyMs || "--"} ms · ${provider.lastResult || "standby"}</div>`;
-    if (!state.providerMarkers[provider.name]) {
-      const element = document.createElement("div");
-      element.className = `provider-marker ${statusClass}`;
-      element.innerHTML = content;
-      state.providerMarkers[provider.name] = new maplibregl.Marker({ element, anchor: "left", offset: [12, -12] }).setLngLat([node.lon, node.lat]).addTo(state.map);
-    } else {
-      const markerElement = state.providerMarkers[provider.name].getElement();
-      markerElement.className = `provider-marker ${statusClass}`;
-      markerElement.innerHTML = content;
-      state.providerMarkers[provider.name].setLngLat([node.lon, node.lat]);
-    }
-    state.providerMarkers[provider.name].getElement().style.borderColor = provider.name === state.activeProvider ? "rgba(70,240,160,.85)" : "rgba(255,255,255,.14)";
-  }
-}
-
-async function refresh() {
-  const [status, tracePayload, providerPayload, recommendations, audit, micro] = await Promise.all([api("/status"), api("/route/trace"), api("/providers"), api("/agent/recommendations"), api("/agent/audit-log"), api("/micro-cdn/status")]);
-  state.scenarioId = status.scenarioId;
-  state.activeProvider = status.activeProvider;
-  state.routeTrace = tracePayload.routeTrace || {};
-  state.providers = providerPayload.providers || [];
-  state.recommendations = recommendations.recommendations || [];
-  state.auditLog = audit.auditLog || [];
-  state.headers = tracePayload.headers || {};
-  state.micro = micro || {};
-  if (state.mapReady) { state.map.getSource("flareless-live")?.setData(buildMapGeoJson(state.routeTrace, state.providers)); updateProviderMarkers(state.providers); }
-  renderAll(status);
-  recordEvent("ROUTE_TRACE_UPDATED", { scenarioId: status.scenarioId, activeProvider: status.activeProvider });
-}
-
-function renderAll(status) {
-  updateHeader(status);
-  $("routeReason").textContent = status.routeReason || "None";
-  $("activeProviderPill").textContent = `active: ${status.activeProvider || "none"}`;
-  $("trafficText").textContent = formatTraffic(status, state.routeTrace, state.providers);
-  $("traceText").textContent = JSON.stringify(state.routeTrace, null, 2);
-  $("traceEvidenceText").textContent = JSON.stringify(state.routeTrace, null, 2);
-  $("headersText").textContent = formatHeaders(state.headers);
-  $("auditText").textContent = JSON.stringify(state.auditLog, null, 2);
-  $("diffText").textContent = formatDiff(status, state.routeTrace);
-  renderProviders(); renderApprovals(); renderPeers(); renderPolicyCode(); renderReplay(); renderIncidents(); renderMetrics(); renderEvents(); renderTopology(); renderHistory(); renderExplanation(status);
-}
-
-function updateHeader(status) {
-  const globalStatus = $("globalStatus");
-  const reason = status.routeReason || "";
-  globalStatus.classList.remove("degraded", "failed");
-  if (!reason || reason === "UNKNOWN") globalStatus.textContent = "STATUS: PAUSED";
-  else if (reason.includes("SUCCESS") || reason.includes("ADVERTISES_CONTENT")) globalStatus.textContent = "STATUS: OPTIMAL";
-  else if (reason.includes("FAILED") || reason.includes("BLOCKED") || reason.includes("NO_HEALTHY")) { globalStatus.textContent = "STATUS: FAILED"; globalStatus.classList.add("failed"); }
-  else { globalStatus.textContent = "STATUS: DEGRADED"; globalStatus.classList.add("degraded"); }
-  const liveState = $("liveState");
-  liveState.textContent = state.timer ? "live" : "paused";
-  liveState.className = state.timer ? "live-state" : "live-state paused";
-}
-
+async function refresh() { const [status, tracePayload, providerPayload, recommendations, audit, micro] = await Promise.all([api("/status"), api("/route/trace"), api("/providers"), api("/agent/recommendations"), api("/agent/audit-log"), api("/micro-cdn/status")]); state.scenarioId = status.scenarioId; state.activeProvider = status.activeProvider; state.routeTrace = tracePayload.routeTrace || {}; state.providers = providerPayload.providers || []; state.recommendations = recommendations.recommendations || []; state.auditLog = audit.auditLog || []; state.headers = tracePayload.headers || {}; state.micro = micro || {}; if (state.mapReady) { state.map.getSource("flareless-live")?.setData(buildMapGeoJson(state.routeTrace, state.providers)); updateProviderMarkers(state.providers); } renderAll(status); recordEvent("ROUTE_TRACE_UPDATED", { scenarioId: status.scenarioId, activeProvider: status.activeProvider }); }
+function renderAll(status) { updateHeader(status); $("routeReason").textContent = status.routeReason || "None"; $("activeProviderPill").textContent = `active: ${status.activeProvider || "none"}`; $("trafficText").textContent = formatTraffic(status, state.routeTrace, state.providers); $("traceText").textContent = JSON.stringify(state.routeTrace, null, 2); $("traceEvidenceText").textContent = JSON.stringify(state.routeTrace, null, 2); $("headersText").textContent = formatHeaders(state.headers); $("auditText").textContent = JSON.stringify(state.auditLog, null, 2); $("diffText").textContent = formatDiff(status, state.routeTrace); renderProviders(); renderApprovals(); renderPeers(); renderPolicyCode(); renderReplay(); renderIncidents(); renderMetrics(); renderEvents(); renderTopology(); renderHistory(); renderExplanation(status); }
+function updateHeader(status) { const globalStatus = $("globalStatus"); const reason = status.routeReason || ""; globalStatus.classList.remove("degraded", "failed"); if (!reason || reason === "UNKNOWN") globalStatus.textContent = "STATUS: PAUSED"; else if (reason.includes("SUCCESS") || reason.includes("ADVERTISES_CONTENT")) globalStatus.textContent = "STATUS: OPTIMAL"; else if (reason.includes("FAILED") || reason.includes("BLOCKED") || reason.includes("NO_HEALTHY")) { globalStatus.textContent = "STATUS: FAILED"; globalStatus.classList.add("failed"); } else { globalStatus.textContent = "STATUS: DEGRADED"; globalStatus.classList.add("degraded"); } const liveState = $("liveState"); liveState.textContent = state.timer ? "live" : "paused"; liveState.className = state.timer ? "live-state" : "live-state paused"; }
 function renderProviders() { $("providersTable").innerHTML = state.providers.map((p) => `<tr><td>${providerDisplayName(p)}</td><td>${providerBadge(p)}</td><td>${p.latencyMs || "--"} ms</td><td>${p.lastResult || "--"}</td><td>${p.name === state.activeProvider ? "active" : "standby"}</td></tr>`).join(""); }
-function renderApprovals() {
-  const container = $("approvalCards");
-  if (!state.recommendations.length) container.textContent = "No recommendations loaded.";
-  else container.innerHTML = state.recommendations.map((item) => `<div class="approval-card"><b>${item.summary}</b><div class="approval-meta">${item.recommendationId} · ${item.status} · ${item.severity} · ${item.createdAt || ""}</div><div>${(item.reasonCodes || []).join(", ") || "No reason codes"}</div></div>`).join("");
-  $("recommendationTimeline").innerHTML = buildRecommendationTimeline();
-}
-function buildRecommendationTimeline() {
-  if (!state.recommendations.length) return '<div class="timeline-item">No recommendation timeline yet.</div>';
-  return state.recommendations.map((item) => `<div class="timeline-item ${item.severity === "error" ? "fail" : "warn"}"><b>${item.createdAt || nowTime()} · Recommendation</b>${item.summary}</div><div class="timeline-item"><b>Operator</b>${item.status === "pending" ? "Waiting for approval" : item.status}</div><div class="timeline-item"><b>Result</b>${state.activeProvider || "none"}</div>`).join("");
-}
-function renderPeers() {
-  const rows = [["hashed3365627006...", "Online", "250MB", "Hash 100%", "ok"], ["hashed5964045005...", "Online", "250MB", "Hash 100%", "ok"], ["hashed3320052003...", "Online", "500MB", "Hash 100%", "ok"]];
-  const microText = JSON.stringify(state.micro);
-  if (microText.includes("NODE_DISABLED")) rows.push(["candidate-disabled", "Rejected", "0MB", "NODE_DISABLED", "fail"]);
-  if (microText.includes("NODE_OFFLINE")) rows.push(["candidate-offline", "Rejected", "0MB", "NODE_OFFLINE", "fail"]);
-  $("peerList").innerHTML = rows.map((row) => `<div class="peer-row"><span class="hash">${row[0]}</span><span class="${row[4]}">${row[1]}</span><span>${row[2]}</span><span class="${row[4]}">${row[3]}</span></div>`).join("");
-  $("trustBoundaryText").textContent = JSON.stringify(state.micro, null, 2);
-}
-function renderPolicyCode() {
-  const policy = { policy: "video-public-peer-assisted-failover", when: state.conditions, then: ["route_to_next_healthy_cdn", "route_to_hash_verified_micro_cdn"], safeguards: { operatorApproval: true, hashVerification: true, livePolicyMutation: false, saveEnabled: false } };
-  $("policyCode").textContent = state.policyFormat === "json" ? JSON.stringify(policy, null, 2) : `policy: ${policy.policy}\nwhen:\n${state.conditions.map((item) => `  - ${item}`).join("\n")}\nthen:\n  - route_to_next_healthy_cdn\n  - route_to_hash_verified_micro_cdn\nsafeguards:\n  operatorApproval: true\n  hashVerification: true\n  livePolicyMutation: false\n  saveEnabled: false`;
-}
+function renderApprovals() { const container = $("approvalCards"); if (!state.recommendations.length) container.textContent = "No recommendations loaded."; else container.innerHTML = state.recommendations.map((item) => `<div class="approval-card"><b>${item.summary}</b><div class="approval-meta">${item.recommendationId} · ${item.status} · ${item.severity} · ${item.createdAt || ""}</div><div>${(item.reasonCodes || []).join(", ") || "No reason codes"}</div></div>`).join(""); $("recommendationTimeline").innerHTML = buildRecommendationTimeline(); }
+function buildRecommendationTimeline() { if (!state.recommendations.length) return '<div class="timeline-item">No recommendation timeline yet.</div>'; return state.recommendations.map((item) => `<div class="timeline-item ${item.severity === "error" ? "fail" : "warn"}"><b>${item.createdAt || nowTime()} · Recommendation</b>${item.summary}</div><div class="timeline-item"><b>Operator</b>${item.status === "pending" ? "Waiting for approval" : item.status}</div><div class="timeline-item"><b>Result</b>${state.activeProvider || "none"}</div>`).join(""); }
+function renderPeers() { const rows = [["hashed3365627006...", "Online", "250MB", "Hash 100%", "ok"], ["hashed5964045005...", "Online", "250MB", "Hash 100%", "ok"], ["hashed3320052003...", "Online", "500MB", "Hash 100%", "ok"]]; const microText = JSON.stringify(state.micro); if (microText.includes("NODE_DISABLED")) rows.push(["candidate-disabled", "Rejected", "0MB", "NODE_DISABLED", "fail"]); if (microText.includes("NODE_OFFLINE")) rows.push(["candidate-offline", "Rejected", "0MB", "NODE_OFFLINE", "fail"]); $("peerList").innerHTML = rows.map((row) => `<div class="peer-row"><span class="hash">${row[0]}</span><span class="${row[4]}">${row[1]}</span><span>${row[2]}</span><span class="${row[4]}">${row[3]}</span></div>`).join(""); $("trustBoundaryText").textContent = JSON.stringify(state.micro, null, 2); }
+function renderPolicyCode() { const policy = { policy: "video-public-peer-assisted-failover", when: state.conditions, then: ["route_to_next_healthy_cdn", "route_to_hash_verified_micro_cdn"], safeguards: { operatorApproval: true, hashVerification: true, livePolicyMutation: false, saveEnabled: false } }; $("policyCode").textContent = state.policyFormat === "json" ? JSON.stringify(policy, null, 2) : `policy: ${policy.policy}\nwhen:\n${state.conditions.map((item) => `  - ${item}`).join("\n")}\nthen:\n  - route_to_next_healthy_cdn\n  - route_to_hash_verified_micro_cdn\nsafeguards:\n  operatorApproval: true\n  hashVerification: true\n  livePolicyMutation: false\n  saveEnabled: false`; }
 function renderConditions() { $("conditionList").innerHTML = state.conditions.map((item, index) => `<div class="rule-line"><button>Condition ${index + 1}</button><span>${item}</span></div>`).join(""); renderPolicyCode(); }
-function renderReplay() {
-  const attempts = state.routeTrace.attempts || [];
-  const slider = $("replaySlider");
-  slider.max = String(attempts.length);
-  slider.value = String(Math.min(state.replayIndex, attempts.length));
-  const partial = replayTrace(state.routeTrace, Number(slider.value));
-  const step = attempts[Number(slider.value) - 1];
-  $("replayStep").textContent = step ? `Step ${slider.value}: ${step.provider} -> ${step.result}` : "Step 0: traffic enters Flareless";
-  $("replayJson").textContent = JSON.stringify(partial, null, 2);
-}
-function renderIncidents() {
-  const attempts = state.routeTrace.attempts || [];
-  const items = attempts.map((a) => `<div class="timeline-item ${isFailed(a.result) ? "fail" : ""}"><b>${nowTime()} · ${a.provider}</b>${a.result}</div>`);
-  if (state.recommendations.length) items.push(`<div class="timeline-item warn"><b>${nowTime()} · Agent</b>Recommendation generated</div>`);
-  items.push(`<div class="timeline-item"><b>${nowTime()} · Result</b>${state.activeProvider || "none"}</div>`);
-  $("incidentTimeline").innerHTML = items.join("");
-}
+function renderReplay() { const attempts = state.routeTrace.attempts || []; const slider = $("replaySlider"); slider.max = String(attempts.length); slider.value = String(Math.min(state.replayIndex, attempts.length)); const partial = replayTrace(state.routeTrace, Number(slider.value)); const step = attempts[Number(slider.value) - 1]; $("replayStep").textContent = step ? `Step ${slider.value}: ${step.provider} -> ${step.result}` : "Step 0: traffic enters Flareless"; $("replayJson").textContent = JSON.stringify(partial, null, 2); }
+function renderIncidents() { const attempts = state.routeTrace.attempts || []; const items = attempts.map((a) => `<div class="timeline-item ${isFailed(a.result) ? "fail" : ""}"><b>${nowTime()} · ${a.provider}</b>${a.result}</div>`); if (state.recommendations.length) items.push(`<div class="timeline-item warn"><b>${nowTime()} · Agent</b>Recommendation generated</div>`); items.push(`<div class="timeline-item"><b>${nowTime()} · Result</b>${state.activeProvider || "none"}</div>`); $("incidentTimeline").innerHTML = items.join(""); }
 function renderMetrics() { renderSpark("requestSpark", state.metrics.requests); renderSpark("latencySpark", state.metrics.latency); renderSpark("errorSpark", state.metrics.errors); renderDistribution(); }
 function renderSpark(id, values) { const max = Math.max(...values, 1); $(id).innerHTML = values.map((value) => `<span style="height:${Math.max(8, (value / max) * 100)}%"></span>`).join(""); }
 function renderDistribution() { const providers = state.providers.length ? state.providers : [{ name: "cdn-a" }, { name: "cdn-b" }, { name: "cdn-c" }]; $("providerDistribution").innerHTML = providers.map((p, i) => { const pct = p.name === state.activeProvider ? 58 : [25, 17, 12][i] || 10; return `<div class="dist-row"><span>${providerDisplayName(p)}</span><div class="dist-bar"><span style="width:${pct}%"></span></div><b>${pct}%</b></div>`; }).join(""); }
 function renderEvents() { $("eventsTable").innerHTML = state.events.map((event) => `<tr><td>${event.time}</td><td>${event.type}</td><td><code>${JSON.stringify(event.payload)}</code></td></tr>`).join(""); }
-function renderTopology() {
-  const failed = new Set((state.routeTrace.attempts || []).filter((a) => isFailed(a.result)).map((a) => a.provider));
+
+function topologyState(id) {
+  const attempts = state.routeTrace.attempts || [];
+  const attempt = attempts.find((item) => item.provider === id);
   const active = state.activeProvider;
-  const nodeClass = (id) => id === "peer-assisted-edge" ? "topology-node peer" : failed.has(id) ? "topology-node failed" : "topology-node";
-  $("topologySvg").innerHTML = `<line class="topology-link" x1="110" y1="210" x2="300" y2="210"/><line class="topology-link" x1="300" y1="210" x2="520" y2="100"/><line class="topology-link" x1="300" y1="210" x2="520" y2="210"/><line class="topology-link" x1="300" y1="210" x2="520" y2="320"/><line class="topology-link" x1="520" y1="210" x2="760" y2="210"/><circle class="topology-node" cx="110" cy="210" r="38"/><text class="topology-label" x="82" y="215">Client</text><circle class="topology-node" cx="300" cy="210" r="46"/><text class="topology-label" x="270" y="215">Flareless</text><circle class="${nodeClass("cdn-a")}" cx="520" cy="100" r="38"/><text class="topology-label" x="488" y="105">Cloudflare</text><circle class="${nodeClass("cdn-b")}" cx="520" cy="210" r="38"/><text class="topology-label" x="500" y="215">Fastly</text><circle class="${nodeClass("cdn-c")}" cx="520" cy="320" r="38"/><text class="topology-label" x="488" y="325">CloudFront</text><circle class="${active === "peer-assisted-edge" ? "topology-node peer" : "topology-node"}" cx="760" cy="120" r="38"/><text class="topology-label" x="730" y="125">Micro CDN</text><circle class="topology-node" cx="760" cy="210" r="38"/><text class="topology-label" x="738" y="215">Origin</text>`;
+  const result = attempt?.result || "";
+  if (["client-us", "flareless"].includes(id)) return "active";
+  if (id === active) return "active";
+  if (isFailed(result)) return "failed";
+  if (id === "peer-assisted-edge") return state.routeTrace.selectedFallback === "peer-fallback" || active === id ? "peer-active" : "peer-standby";
+  if (id === "origin") return active ? "active" : "standby";
+  return "standby";
+}
+function topologyColors(id) {
+  const mode = topologyState(id);
+  const map = {
+    active: { fill: "#12251f", stroke: "#46f0a0", text: "#f1fff7", opacity: 1, glow: "url(#greenGlow)" },
+    failed: { fill: "#25131a", stroke: "#f04455", text: "#ffe6ea", opacity: 1, glow: "url(#redGlow)" },
+    standby: { fill: "#101820", stroke: "#43515e", text: "#8e9cab", opacity: 0.48, glow: "none" },
+    "peer-active": { fill: "#10232c", stroke: "#62c8ff", text: "#e9fbff", opacity: 1, glow: "url(#blueGlow)" },
+    "peer-standby": { fill: "#0f1a22", stroke: "#315365", text: "#8ca8b6", opacity: 0.55, glow: "none" },
+  };
+  return map[mode] || map.standby;
+}
+function topologyLinkMode(from, to) {
+  if (from === "client-us" && to === "flareless") return "active";
+  if (to === state.activeProvider || from === state.activeProvider) return "active";
+  const failed = (state.routeTrace.attempts || []).some((a) => a.provider === to && isFailed(a.result));
+  if (failed) return "failed";
+  if (to === "peer-assisted-edge" && state.routeTrace.selectedFallback === "peer-fallback") return "peer-active";
+  return "standby";
+}
+function topologyStroke(mode) { if (mode === "active") return "#46f0a0"; if (mode === "failed") return "#f04455"; if (mode === "peer-active") return "#62c8ff"; return "#314454"; }
+function topoNode(id, x, y, r, label) { const c = topologyColors(id); const status = topologyState(id).replace("peer-", ""); const sub = id === state.activeProvider ? "active" : status; return `<g class="topo-node" data-id="${id}" opacity="${c.opacity}"><circle cx="${x}" cy="${y}" r="${r + 8}" fill="${c.stroke}" opacity="0.10" filter="${c.glow}"/><circle cx="${x}" cy="${y}" r="${r}" fill="${c.fill}" stroke="${c.stroke}" stroke-width="3" filter="${c.glow}"/><text x="${x}" y="${y - 2}" text-anchor="middle" fill="${c.text}" font-size="18" font-family="Segoe UI">${label}</text><text x="${x}" y="${y + 20}" text-anchor="middle" fill="${c.stroke}" font-size="11" font-family="Consolas">${sub}</text>${status === "failed" ? `<text x="${x + r - 4}" y="${y - r + 12}" text-anchor="middle" fill="#fff" font-size="16" font-family="Segoe UI">×</text>` : ""}</g>`; }
+function topoLink(id, from, to, x1, y1, x2, y2) { const mode = topologyLinkMode(from, to); const stroke = topologyStroke(mode); const opacity = mode === "standby" ? 0.34 : 0.9; const dash = mode === "failed" ? "8 8" : mode === "standby" ? "4 10" : ""; const packet = mode !== "standby" ? `<circle r="5" fill="${stroke}" opacity="0.95"><animateMotion dur="1.8s" repeatCount="indefinite" path="M${x1},${y1} L${x2},${y2}"/></circle>` : ""; return `<g><line id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="4" opacity="${opacity}" stroke-dasharray="${dash}"/>${packet}</g>`; }
+function renderTopology() {
+  const attempts = state.routeTrace.attempts || [];
+  const failedCount = attempts.filter((a) => isFailed(a.result)).length;
+  const activeLabel = state.activeProvider ? (nodes[state.activeProvider]?.label || state.activeProvider) : "none";
+  $("topologySvg").innerHTML = `<defs><filter id="greenGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="redGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="blueGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect x="0" y="0" width="900" height="420" fill="#06101a"/><text x="24" y="34" fill="#eaf6ff" font-size="16" font-family="Segoe UI" font-weight="700">Live Topology</text><text x="24" y="56" fill="#91a4b5" font-size="12" font-family="Consolas">active=${activeLabel} · failed=${failedCount} · standby nodes greyed</text>${topoLink("l-client", "client-us", "flareless", 100, 220, 285, 220)}${topoLink("l-cf", "flareless", "cdn-a", 340, 190, 520, 96)}${topoLink("l-fastly", "flareless", "cdn-b", 350, 220, 520, 220)}${topoLink("l-cloudfront", "flareless", "cdn-c", 340, 250, 520, 344)}${topoLink("l-origin", state.activeProvider || "cdn-b", "origin", 575, 220, 755, 220)}${topoLink("l-peer", "flareless", "peer-assisted-edge", 350, 220, 755, 112)}${topoNode("client-us", 90, 220, 38, "Client")}${topoNode("flareless", 310, 220, 52, "Flareless")}${topoNode("cdn-a", 550, 92, 42, "Cloudflare")}${topoNode("cdn-b", 550, 220, 42, "Fastly")}${topoNode("cdn-c", 550, 348, 42, "CloudFront")}${topoNode("peer-assisted-edge", 790, 112, 44, "Micro CDN")}${topoNode("origin", 790, 220, 44, "Origin")}<g transform="translate(24 350)"><rect width="310" height="44" rx="10" fill="#0b1520" stroke="rgba(255,255,255,.08)"/><circle cx="20" cy="22" r="6" fill="#46f0a0"/><text x="34" y="26" fill="#dcecff" font-size="12">active</text><circle cx="102" cy="22" r="6" fill="#43515e"/><text x="116" y="26" fill="#dcecff" font-size="12">standby</text><circle cx="200" cy="22" r="6" fill="#f04455"/><text x="214" y="26" fill="#dcecff" font-size="12">failed</text></g>`;
 }
 function renderHistory() { $("historyTable").innerHTML = state.history.map((item) => `<tr><td>${item.time}</td><td>${item.scenario}</td><td>${item.result}</td><td>${item.provider || "none"}</td></tr>`).join(""); }
 function renderExplanation(status) { const attempts = state.routeTrace.attempts || []; const failed = attempts.filter((a) => isFailed(a.result)); $("explanationText").textContent = `Why did routing change?\n\n${failed.length ? failed.map((a) => `${a.provider} returned ${a.result}.`).join("\n") : "The primary provider path is healthy."}\n\nSelected provider: ${status.activeProvider || "none"}.\nNo live policy mutations occurred.`; }
-
 function formatHeaders(headers) { return Object.entries(headers || {}).map(([key, value]) => `${key}: ${value}`).join("\n") || "No headers loaded."; }
 function formatTraffic(status, trace, providers) { return `Scenario: ${status.scenarioId}\nActive: ${status.activeProvider || "none"}\n\n${providers.map((provider) => `${provider.name.padEnd(7)} ${String(provider.status).padEnd(9)} ${provider.lastResult}`).join("\n")}\n\n${(trace.attempts || []).map((attempt) => `${attempt.provider}: ${attempt.result}`).join("\n")}`; }
 function formatDiff(status, trace) { const failed = (trace.attempts || []).filter((item) => item.result !== "PROVIDER_SUCCESS").map((item) => item.provider); return `before:\n  activeProvider: primary\n  cooldown: []\n\nafter:\n  routeReason: ${status.routeReason || "unknown"}\n  activeProvider: ${status.activeProvider || "none"}\n  cooldown: ${JSON.stringify(failed)}\n  livePolicyMutation: false`; }
 
 function latestPendingRecommendation() { return [...state.recommendations].reverse().find((item) => item.status === "pending"); }
-async function decideLatest(action) { const item = latestPendingRecommendation(); if (!item) return toast("No pending recommendation."); await api(`/agent/recommendations/${item.recommendationId}/${action}`, { operator: "local-operator", note: `${action} from UI phase two` }); recordEvent(action === "approve" ? "RECOMMENDATION_APPROVED" : "RECOMMENDATION_REJECTED", { recommendationId: item.recommendationId }); await refresh(); toast(`Recommendation ${action}d.`); }
+async function decideLatest(action) { const item = latestPendingRecommendation(); if (!item) return toast("No pending recommendation."); await api(`/agent/recommendations/${item.recommendationId}/${action}`, { operator: "local-operator", note: `${action} from UI phase 2.5` }); recordEvent(action === "approve" ? "RECOMMENDATION_APPROVED" : "RECOMMENDATION_REJECTED", { recommendationId: item.recommendationId }); await refresh(); toast(`Recommendation ${action}d.`); }
 async function runScenario() { await api("/route/simulate", { scenarioId: $("scenarioSelect").value }); await refresh(); state.history.unshift({ time: nowTime(), scenario: state.scenarioId, result: state.routeTrace.finalStatus?.reason || "unknown", provider: state.activeProvider }); state.history = state.history.slice(0, 40); recordEvent("SCENARIO_RUN", { scenarioId: state.scenarioId }); renderHistory(); toast("Scenario applied."); }
 async function applyOutage() { $("scenarioSelect").value = "http-status-failover"; await runScenario(); }
 function startPolling() { if (state.timer) return; state.timer = setInterval(refresh, 1000); $("pollBtn").disabled = true; $("pauseBtn").disabled = false; recordEvent("POLLING_STARTED", {}); refresh(); }
 function pausePolling() { if (state.timer) clearInterval(state.timer); state.timer = null; $("pollBtn").disabled = false; $("pauseBtn").disabled = true; recordEvent("POLLING_PAUSED", {}); updateHeader({ routeReason: $("routeReason").textContent }); renderEvents(); }
-function showView(viewId) { state.currentPage = viewId; document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId)); document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewId)); recordEvent("PAGE_CHANGED", { viewId }); renderEvents(); if (viewId === "dashboard") setTimeout(() => state.map?.resize(), 50); }
+function showView(viewId) { state.currentPage = viewId; document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === viewId)); document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === viewId)); recordEvent("PAGE_CHANGED", { viewId }); renderEvents(); if (viewId === "dashboard") setTimeout(() => state.map?.resize(), 50); if (viewId === "topology") setTimeout(renderTopology, 50); }
 function updateReplayFromSlider() { state.replayIndex = Number($("replaySlider").value); const partial = replayTrace(state.routeTrace, state.replayIndex); if (state.mapReady) state.map.getSource("flareless-live")?.setData(buildMapGeoJson(partial, state.providers)); renderReplay(); recordEvent("REPLAY_STEP_CHANGED", { replayIndex: state.replayIndex }); }
-
-function bindEvents() {
-  $("runScenarioBtn").addEventListener("click", runScenario); $("refreshBtn").addEventListener("click", refresh); $("pollBtn").addEventListener("click", startPolling); $("pauseBtn").addEventListener("click", pausePolling); $("applyOutageBtn").addEventListener("click", applyOutage);
-  $("addConditionBtn").addEventListener("click", () => { state.conditions.push("New condition == true"); renderConditions(); toast("Condition added."); });
-  $("removeConditionBtn").addEventListener("click", () => { if (state.conditions.length > 1) state.conditions.pop(); renderConditions(); toast("Condition removed."); });
-  $("yamlBtn").addEventListener("click", () => { state.policyFormat = "yaml"; $("yamlBtn").classList.add("active"); $("jsonBtn").classList.remove("active"); renderPolicyCode(); });
-  $("jsonBtn").addEventListener("click", () => { state.policyFormat = "json"; $("jsonBtn").classList.add("active"); $("yamlBtn").classList.remove("active"); renderPolicyCode(); });
-  $("testPolicyBtn").addEventListener("click", () => toast("Policy test passed in local simulation. Save remains disabled."));
-  $("approveBtn").addEventListener("click", () => decideLatest("approve")); $("rejectBtn").addEventListener("click", () => decideLatest("reject"));
-  $("replaySlider").addEventListener("input", updateReplayFromSlider);
-  document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
-}
+function bindEvents() { $("runScenarioBtn").addEventListener("click", runScenario); $("refreshBtn").addEventListener("click", refresh); $("pollBtn").addEventListener("click", startPolling); $("pauseBtn").addEventListener("click", pausePolling); $("applyOutageBtn").addEventListener("click", applyOutage); $("addConditionBtn").addEventListener("click", () => { state.conditions.push("New condition == true"); renderConditions(); toast("Condition added."); }); $("removeConditionBtn").addEventListener("click", () => { if (state.conditions.length > 1) state.conditions.pop(); renderConditions(); toast("Condition removed."); }); $("yamlBtn").addEventListener("click", () => { state.policyFormat = "yaml"; $("yamlBtn").classList.add("active"); $("jsonBtn").classList.remove("active"); renderPolicyCode(); }); $("jsonBtn").addEventListener("click", () => { state.policyFormat = "json"; $("jsonBtn").classList.add("active"); $("yamlBtn").classList.remove("active"); renderPolicyCode(); }); $("testPolicyBtn").addEventListener("click", () => toast("Policy test passed in local simulation. Save remains disabled.")); $("approveBtn").addEventListener("click", () => decideLatest("approve")); $("rejectBtn").addEventListener("click", () => decideLatest("reject")); $("replaySlider").addEventListener("input", updateReplayFromSlider); document.querySelectorAll(".nav-item").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view))); }
 
 bindEvents(); renderConditions(); renderMetrics(); renderEvents(); renderTopology(); initMap(); recordEvent("UI_READY", { paused: true });
