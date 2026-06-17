@@ -66,12 +66,13 @@ tools/local-demo/ui/index.html
 tools/local-demo/ui/styles.css
 tools/local-demo/ui/app.js
 tools/local-demo/ui/cockpit_topology.js
+tools/local-demo/ui/agent_hosting_ui.js
 tools/local-demo/webview_console.py
 tools/local-demo/server.py
 tools/local-demo/requirements.txt
 ```
 
-`webview_console.py` starts the local API server, reads the UI files, injects the local base URL, and opens the pywebview window. The optional `cockpit_topology.js` extension adds the draggable living topology and cockpit style metrics after the base UI loads.
+`webview_console.py` starts the local API server, reads the UI files, injects the local base URL, and opens the pywebview window. The optional `cockpit_topology.js` extension adds the draggable living topology and cockpit style metrics after the base UI loads. The optional `agent_hosting_ui.js` extension adds Agent Ops naming, agent runtime settings, hosted locations, setup guidance, and server shutdown behavior controls.
 
 ## Operational UI features
 
@@ -87,10 +88,10 @@ provider cards anchored to map coordinates
 clickable MapLibre nodes and provider cards
 details drawer for provider, Micro CDN, topology, and origin nodes
 status colors for optimal, degraded, failed, standby, active, and peer active
-separate Traffic, Providers, Policies, Scenario Builder, Approvals, Peers, Evidence, Replay, Incidents, Metrics, Events, Topology, History, Logs, and Settings views
+separate Traffic, Providers, Policies, Scenario Builder, Agent Ops, Peers, Evidence, Replay, Incidents, Metrics, Events, Topology, History, Logs, and Settings views
 shared front end state object
 provider health table
-approval inbox cards with approve/reject actions
+agent recommendation inbox cards with approve/reject actions
 policy builder controls with add/remove conditions
 YAML/JSON policy preview
 Scenario Builder with custom failover chain
@@ -107,9 +108,39 @@ health check simulation settings per provider
 provider registry derived from topology
 live topology with clickable nodes, active path labels, edge labels, and animated packet flow
 cockpit style metrics dashboard with route attitude, gauges, annunciators, event tape, and provider matrix
+agent runtime settings for free local agent or paid API agent marker
+hosted location setup registry
+setup assistant instructions and recommendations
+keep server running after GUI closes setting
 evidence headers and route trace views
 toast notifications
 release ZIP builder
+```
+
+## Agent runtime and hosting setup
+
+Settings now includes preparation controls for turning the demo into a real tool:
+
+```text
+free local rule agent
+paid API compatible agent marker
+masked API key configured state, raw key is not persisted by this demo
+hosted locations list
+manual instructions / patch only / future credentialed apply modes
+setup recommendation generator
+server shutdown behavior toggle
+```
+
+Default safety rule:
+
+```text
+Do not auto modify a hosting account until credentials are configured, target file is detected, backup is created, a diff is shown, and the operator explicitly approves Apply.
+```
+
+For product planning, see:
+
+```text
+docs/production/agent-and-hosting-setup-plan.md
 ```
 
 ## Local persistence
@@ -129,6 +160,7 @@ topology-snapshots.json
 custom-scenarios.json
 health-settings.json
 provider-registry.json
+app-settings.json
 ```
 
 These files are intentionally local only.
