@@ -1,14 +1,15 @@
 @echo off
 setlocal EnableExtensions
 
-rem Flareless Local Demo Console launcher for Windows.
-rem Double click this file from Explorer, or run it from cmd.
+rem Main Flareless launcher for Windows.
+rem This starts the embedded MapLibre command center.
+rem The legacy Tkinter launcher is start_tkinter.bat.
 
 cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo  Flareless Local Demo Console
+echo  Flareless Embedded MapLibre Command Center
 echo ============================================================
 echo.
 echo Working directory: %CD%
@@ -32,17 +33,21 @@ if not defined PYTHON_CMD (
 )
 
 echo Using Python command: %PYTHON_CMD%
-echo Starting local server and Tkinter release console...
+echo Starting embedded MapLibre GUI.
+echo Startup is paused. Press Run, Refresh, or Live inside the GUI.
 echo.
 
-%PYTHON_CMD% run_demo.py
+%PYTHON_CMD% webview_console.py
 set "EXIT_CODE=%ERRORLEVEL%"
 
 echo.
 if not "%EXIT_CODE%"=="0" (
-    echo Flareless local demo exited with error code %EXIT_CODE%.
+    echo Flareless embedded MapLibre command center exited with error code %EXIT_CODE%.
+    echo.
+    echo If pywebview is missing, run:
+    echo %PYTHON_CMD% -m pip install -r requirements.txt
 ) else (
-    echo Flareless local demo closed.
+    echo Flareless embedded MapLibre command center closed.
 )
 echo.
 pause
