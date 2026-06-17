@@ -65,6 +65,33 @@ def mask_api_key(value: str) -> str:
     return f"{value[:4]}...{value[-4:]}"
 
 
+def normalize_host_profile(item: dict[str, Any], index: int = 0) -> dict[str, str | int]:
+    """Normalize a host profile without storing credentials or secrets."""
+    raw_issue_count = item.get("issueCount", 0)
+    try:
+        issue_count = max(0, int(raw_issue_count))
+    except (TypeError, ValueError):
+        issue_count = 0
+    return {
+        "id": str(item.get("id") or f"host-{index + 1}"),
+        "name": str(item.get("name") or "Hosted location"),
+        "type": str(item.get("type") or item.get("platform") or "manual"),
+        "platform": str(item.get("platform") or item.get("type") or "manual"),
+        "domain": str(item.get("domain") or ""),
+        "host": str(item.get("host") or ""),
+        "path": str(item.get("path") or ""),
+        "detectedFile": str(item.get("detectedFile") or ""),
+        "applyMode": str(item.get("applyMode") or "manual-instructions"),
+        "environment": str(item.get("environment") or "production"),
+        "criticality": str(item.get("criticality") or "medium"),
+        "status": str(item.get("status") or "needs-setup"),
+        "lastCheck": str(item.get("lastCheck") or "never"),
+        "issueCount": issue_count,
+        "owner": str(item.get("owner") or "me"),
+        "notes": str(item.get("notes") or ""),
+    }
+
+
 def write_app_settings(payload: dict[str, Any]) -> dict[str, Any]:
     settings = read_app_settings()
     if not isinstance(payload, dict):
@@ -100,19 +127,7 @@ def write_app_settings(payload: dict[str, Any]) -> dict[str, Any]:
             for item in locations:
                 if not isinstance(item, dict):
                     continue
-                cleaned.append(
-                    {
-                        "id": str(item.get("id") or f"host-{len(cleaned) + 1}"),
-                        "name": str(item.get("name") or "Hosted location"),
-                        "type": str(item.get("type") or "manual"),
-                        "domain": str(item.get("domain") or ""),
-                        "host": str(item.get("host") or ""),
-                        "path": str(item.get("path") or ""),
-                        "detectedFile": str(item.get("detectedFile") or ""),
-                        "applyMode": str(item.get("applyMode") or "manual-instructions"),
-                        "notes": str(item.get("notes") or ""),
-                    }
-                )
+                cleaned.append(normalize_host_profile(item, len(cleaned)))
             settings.setdefault("hosting", {})["locations"] = cleaned
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,7 +156,7 @@ def render_embedded_html(base_url: str) -> str:
     scripts = [
         (UI_DIR / "app.js").read_text(encoding="utf-8"),
     ]
-    for optional_script_name in ["cockpit_topology.js", "agent_hosting_ui.js"]:
+    for optional_script_name in ["cockpit_topology.js", "agent_hosting_ui.js", "host_profiles_metrics.js"]:
         optional_script = UI_DIR / optional_script_name
         if optional_script.exists():
             scripts.append(optional_script.read_text(encoding="utf-8"))
