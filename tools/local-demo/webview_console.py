@@ -160,7 +160,7 @@ def render_embedded_html(base_url: str) -> str:
         "cockpit_topology.js",
         "agent_hosting_ui.js",
         "host_profiles_metrics.js",
-        "map_safety.js",
+        "dashboard_map_isolation.js",
     ]:
         optional_script = UI_DIR / optional_script_name
         if optional_script.exists():
