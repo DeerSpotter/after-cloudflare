@@ -16,8 +16,30 @@ ROOT = Path(__file__).resolve().parent
 SCENARIO_DIR = ROOT / "scenarios"
 STATE_DIR = ROOT / "state"
 STATE_FILE = STATE_DIR / "local-ui-state.json"
+TOPOLOGY_FILE = STATE_DIR / "topology-config.json"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+
+DEFAULT_TOPOLOGY_CONFIG: dict[str, Any] = {
+    "version": 1,
+    "nodes": [
+        {"id": "client-us", "label": "Client", "kind": "client", "x": 90, "y": 220, "r": 38},
+        {"id": "flareless", "label": "Flareless", "kind": "director", "x": 310, "y": 220, "r": 52},
+        {"id": "cdn-a", "label": "Cloudflare", "kind": "provider", "x": 550, "y": 92, "r": 42},
+        {"id": "cdn-b", "label": "Fastly", "kind": "provider", "x": 550, "y": 220, "r": 42},
+        {"id": "cdn-c", "label": "CloudFront", "kind": "provider", "x": 550, "y": 348, "r": 42},
+        {"id": "peer-assisted-edge", "label": "Micro CDN", "kind": "peer", "x": 790, "y": 112, "r": 44},
+        {"id": "origin", "label": "Origin", "kind": "origin", "x": 790, "y": 220, "r": 44},
+    ],
+    "links": [
+        {"id": "ingress", "from": "client-us", "to": "flareless", "label": "ingress"},
+        {"id": "cloudflare", "from": "flareless", "to": "cdn-a", "label": "24 ms"},
+        {"id": "fastly", "from": "flareless", "to": "cdn-b", "label": "18 ms"},
+        {"id": "cloudfront", "from": "flareless", "to": "cdn-c", "label": "31 ms"},
+        {"id": "micro-cdn", "from": "flareless", "to": "peer-assisted-edge", "label": "hash verified"},
+        {"id": "origin", "from": "cdn-b", "to": "origin", "label": "origin"},
+    ],
+}
 
 
 def now_iso() -> str:
@@ -34,12 +56,12 @@ def load_scenarios() -> dict[str, dict[str, Any]]:
 
 def read_persisted_ui_state() -> dict[str, Any]:
     if not STATE_FILE.exists():
-        return {"history": [], "events": [], "savedAt": None}
+        return {"history": [], "events": [], "scenarioSteps": [], "savedAt": None}
     try:
         data = json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {"history": [], "events": [], "savedAt": None}
+        return data if isinstance(data, dict) else {"history": [], "events": [], "scenarioSteps": [], "savedAt": None}
     except (OSError, json.JSONDecodeError):
-        return {"history": [], "events": [], "savedAt": None}
+        return {"history": [], "events": [], "scenarioSteps": [], "savedAt": None}
 
 
 def write_persisted_ui_state(payload: dict[str, Any]) -> dict[str, Any]:
@@ -47,9 +69,33 @@ def write_persisted_ui_state(payload: dict[str, Any]) -> dict[str, Any]:
     safe = {
         "history": payload.get("history", []) if isinstance(payload.get("history"), list) else [],
         "events": payload.get("events", []) if isinstance(payload.get("events"), list) else [],
+        "scenarioSteps": payload.get("scenarioSteps", []) if isinstance(payload.get("scenarioSteps"), list) else [],
         "savedAt": now_iso(),
     }
     STATE_FILE.write_text(json.dumps(safe, indent=2), encoding="utf-8")
+    return safe
+
+
+def read_topology_config() -> dict[str, Any]:
+    if not TOPOLOGY_FILE.exists():
+        return DEFAULT_TOPOLOGY_CONFIG
+    try:
+        data = json.loads(TOPOLOGY_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("nodes"), list) and isinstance(data.get("links"), list):
+            return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return DEFAULT_TOPOLOGY_CONFIG
+
+
+def write_topology_config(payload: dict[str, Any]) -> dict[str, Any]:
+    nodes = payload.get("nodes")
+    links = payload.get("links")
+    if not isinstance(nodes, list) or not isinstance(links, list):
+        raise ValueError("topology config requires nodes and links arrays")
+    safe = {"version": int(payload.get("version", 1) or 1), "nodes": nodes, "links": links, "savedAt": now_iso()}
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    TOPOLOGY_FILE.write_text(json.dumps(safe, indent=2), encoding="utf-8")
     return safe
 
 
@@ -61,10 +107,7 @@ def build_headers(route_trace: dict[str, Any]) -> dict[str, str]:
         "x-flareless-provider": str(final_status.get("provider") or "none"),
         "x-flareless-reason": str(final_status.get("reason") or "UNKNOWN"),
         "x-flareless-attempts": ",".join(f"{a.get('provider')}:{a.get('result')}" for a in attempts),
-        "x-flareless-failure-points": ",".join(
-            f"{i.get('sequence', i.get('order'))}:{i.get('stage', i.get('category'))}:{i.get('provider')}:{i.get('code', i.get('result'))}"
-            for i in failure_points
-        ),
+        "x-flareless-failure-points": ",".join(f"{i.get('sequence', i.get('order'))}:{i.get('stage', i.get('category'))}:{i.get('provider')}:{i.get('code', i.get('result'))}" for i in failure_points),
         "x-flareless-route-trace": json.dumps(route_trace, separators=(",", ":")),
     }
 
@@ -107,30 +150,11 @@ class DemoState:
         self.providers = list(scenario.get("providers", []))
         self.trace_counter += 1
         trace_id = f"trace-{self.trace_counter:06d}"
-        self.route_trace = {
-            "requestId": trace_id,
-            "routeKey": scenario.get("routeKey", "route:/"),
-            "policyId": scenario.get("policyId", "unknown-policy"),
-            "attempts": scenario.get("attempts", []),
-            "failurePoints": scenario.get("failurePoints", []),
-            "selectedFallback": scenario.get("selectedFallback"),
-            "finalStatus": scenario.get("finalStatus", {}),
-            "generatedAt": int(time.time() * 1000),
-        }
+        self.route_trace = {"requestId": trace_id, "routeKey": scenario.get("routeKey", "route:/"), "policyId": scenario.get("policyId", "unknown-policy"), "attempts": scenario.get("attempts", []), "failurePoints": scenario.get("failurePoints", []), "selectedFallback": scenario.get("selectedFallback"), "finalStatus": scenario.get("finalStatus", {}), "generatedAt": int(time.time() * 1000)}
         self.headers = build_headers(self.route_trace)
         self.route_traces[trace_id] = self.route_trace
         recommendation = self.create_recommendation(scenario) if create_recommendation else None
-        return {
-            "mode": "demo-simulation",
-            "scenarioId": scenario_id,
-            "scenario": scenario,
-            "story": self.create_story(scenario),
-            "headers": self.headers,
-            "routeTrace": self.route_trace,
-            "providers": self.providers,
-            "recommendation": recommendation,
-            "recommendationIds": [recommendation["recommendationId"]] if recommendation else [],
-        }
+        return {"mode": "demo-simulation", "scenarioId": scenario_id, "scenario": scenario, "story": self.create_story(scenario), "headers": self.headers, "routeTrace": self.route_trace, "providers": self.providers, "recommendation": recommendation, "recommendationIds": [recommendation["recommendationId"]] if recommendation else []}
 
     def apply_custom_scenario(self, scenario: dict[str, Any]) -> dict[str, Any]:
         scenario = dict(scenario)
@@ -156,15 +180,7 @@ class DemoState:
         severity = "info" if not failures else "warning"
         if final_status.get("outcome") in {"fallback-blocked", "no-healthy-node", "peer-fallback"}:
             severity = "error"
-        return {
-            "analysisId": f"analysis-{int(time.time())}",
-            "routeTraceId": trace.get("requestId"),
-            "severity": severity,
-            "summary": self.create_analysis_summary(trace),
-            "evidence": [f"{a.get('result')} on {a.get('provider')}" for a in failures] or ["Primary provider succeeded"],
-            "proposedAction": {"kind": "policy-annotation", "scope": trace.get("routeKey"), "seconds": 900, "livePolicyMutation": False},
-            "livePolicyMutation": False,
-        }
+        return {"analysisId": f"analysis-{int(time.time())}", "routeTraceId": trace.get("requestId"), "severity": severity, "summary": self.create_analysis_summary(trace), "evidence": [f"{a.get('result')} on {a.get('provider')}" for a in failures] or ["Primary provider succeeded"], "proposedAction": {"kind": "policy-annotation", "scope": trace.get("routeKey"), "seconds": 900, "livePolicyMutation": False}, "livePolicyMutation": False}
 
     def create_analysis_summary(self, route_trace: dict[str, Any]) -> str:
         final_status = route_trace.get("finalStatus", {})
@@ -175,29 +191,7 @@ class DemoState:
         self.recommendation_counter += 1
         rec_id = f"rec_{self.recommendation_counter:06d}"
         created_at = now_iso()
-        recommendation = {
-            "recommendationId": rec_id,
-            "requestId": self.route_trace.get("requestId", "unknown-request"),
-            "routeKey": self.route_trace.get("routeKey", "route:/"),
-            "policyId": self.route_trace.get("policyId", "unknown-policy"),
-            "status": "pending",
-            "severity": agent.get("severity", "info"),
-            "summary": agent.get("summary", "Agent recommendation stored for operator review."),
-            "reasonCodes": agent.get("reasonCodes", []),
-            "proposedAction": {
-                "type": "policy_annotation",
-                "scope": "route",
-                "routeKey": self.route_trace.get("routeKey", "route:/"),
-                "change": {
-                    "agentAction": agent.get("action", "OBSERVE_ONLY"),
-                    "cooldownProviderNames": [a.get("provider") for a in self.route_trace.get("attempts", []) if a.get("result") != "PROVIDER_SUCCESS"],
-                    "ttlSeconds": 900,
-                    "livePolicyMutation": False,
-                },
-            },
-            "createdAt": created_at,
-            "updatedAt": created_at,
-        }
+        recommendation = {"recommendationId": rec_id, "requestId": self.route_trace.get("requestId", "unknown-request"), "routeKey": self.route_trace.get("routeKey", "route:/"), "policyId": self.route_trace.get("policyId", "unknown-policy"), "status": "pending", "severity": agent.get("severity", "info"), "summary": agent.get("summary", "Agent recommendation stored for operator review."), "reasonCodes": agent.get("reasonCodes", []), "proposedAction": {"type": "policy_annotation", "scope": "route", "routeKey": self.route_trace.get("routeKey", "route:/"), "change": {"agentAction": agent.get("action", "OBSERVE_ONLY"), "cooldownProviderNames": [a.get("provider") for a in self.route_trace.get("attempts", []) if a.get("result") != "PROVIDER_SUCCESS"], "ttlSeconds": 900, "livePolicyMutation": False}}, "createdAt": created_at, "updatedAt": created_at}
         self.recommendations[rec_id] = recommendation
         self.add_audit_event(rec_id, "flareless-agent", "created", "Recommendation stored as pending operator review.")
         return recommendation
@@ -236,11 +230,11 @@ class DemoState:
 
 
 def default_providers_from_attempts(attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    provider_names = ["cdn-a", "cdn-b", "cdn-c"]
+    provider_names = [node["id"] for node in read_topology_config().get("nodes", []) if node.get("kind") == "provider"] or ["cdn-a", "cdn-b", "cdn-c"]
     seen = [a.get("provider") for a in attempts if a.get("provider")]
     ordered = list(dict.fromkeys(seen + provider_names))
     result_by_provider = {a.get("provider"): a.get("result") for a in attempts}
-    return [{"name": name, "status": "healthy" if not is_failed_result(result_by_provider.get(name, "")) else "degraded", "latencyMs": 18 + index * 9, "lastResult": result_by_provider.get(name, "STANDBY")} for index, name in enumerate(ordered[:4])]
+    return [{"name": name, "status": "healthy" if not is_failed_result(result_by_provider.get(name, "")) else "degraded", "latencyMs": 18 + index * 9, "lastResult": result_by_provider.get(name, "STANDBY")} for index, name in enumerate(ordered[:6])]
 
 
 def is_failed_result(result: str) -> bool:
@@ -267,6 +261,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         if path == "/status": return self.send_json(STATE.status())
         if path == "/scenarios": return self.send_json({"scenarios": list(STATE.scenarios.values())})
         if path == "/providers": return self.send_json({"providers": STATE.providers})
+        if path == "/topology/config": return self.send_json(read_topology_config())
         if path == "/route/trace": return self.send_json({"routeTrace": STATE.route_trace, "headers": STATE.headers})
         if path == "/route/traces": return self.send_json({"routeTraces": list(STATE.route_traces.values())})
         if path.startswith("/route/traces/"):
@@ -291,6 +286,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         try:
             if path == "/route/simulate": return self.send_json(STATE.apply_scenario(body.get("scenarioId", "healthy-route")))
             if path == "/route/custom-scenario": return self.send_json(STATE.apply_custom_scenario(body.get("scenario") if isinstance(body.get("scenario"), dict) else body))
+            if path == "/topology/config": return self.send_json(write_topology_config(body), status=201)
             if path == "/agent/cdn-control": return self.send_json(STATE.analyze_route_trace(body.get("routeTrace") if isinstance(body.get("routeTrace"), dict) else None))
             if path == "/agent/recommendations":
                 scenario_id = body.get("scenarioId")
@@ -343,6 +339,7 @@ def run_server(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT) -> ThreadingH
     server = ThreadingHTTPServer((host, port), DemoHandler)
     print(f"Flareless local demo server listening on http://{host}:{port}")
     print(f"Local UI history file: {STATE_FILE}")
+    print(f"Local topology config file: {TOPOLOGY_FILE}")
     return server
 
 
