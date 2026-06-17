@@ -156,7 +156,12 @@ def render_embedded_html(base_url: str) -> str:
     scripts = [
         (UI_DIR / "app.js").read_text(encoding="utf-8"),
     ]
-    for optional_script_name in ["cockpit_topology.js", "agent_hosting_ui.js", "host_profiles_metrics.js"]:
+    for optional_script_name in [
+        "cockpit_topology.js",
+        "agent_hosting_ui.js",
+        "host_profiles_metrics.js",
+        "map_safety.js",
+    ]:
         optional_script = UI_DIR / optional_script_name
         if optional_script.exists():
             scripts.append(optional_script.read_text(encoding="utf-8"))
