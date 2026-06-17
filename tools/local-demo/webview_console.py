@@ -165,7 +165,11 @@ def render_embedded_html(base_url: str) -> str:
         optional_script = UI_DIR / optional_script_name
         if optional_script.exists():
             scripts.append(optional_script.read_text(encoding="utf-8"))
-    script = "\n\n".join(scripts)
+
+    # Keep each UI module in its own script block. This prevents function hoisting
+    # from later optional modules from overriding app.js functions before app.js
+    # finishes initializing the MapLibre dashboard map.
+    script = "\n</script>\n<script>\n".join(scripts)
     return (
         template.replace("__BASE_URL__", html.escape(base_url.rstrip("/"), quote=True))
         .replace("__APP_CSS__", styles)
