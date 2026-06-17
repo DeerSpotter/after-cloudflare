@@ -65,12 +65,13 @@ The ZIP includes launchers, UI files, scenario fixtures, screenshots, README, re
 tools/local-demo/ui/index.html
 tools/local-demo/ui/styles.css
 tools/local-demo/ui/app.js
+tools/local-demo/ui/cockpit_topology.js
 tools/local-demo/webview_console.py
 tools/local-demo/server.py
 tools/local-demo/requirements.txt
 ```
 
-`webview_console.py` starts the local API server, reads the UI files, injects the local base URL, and opens the pywebview window.
+`webview_console.py` starts the local API server, reads the UI files, injects the local base URL, and opens the pywebview window. The optional `cockpit_topology.js` extension adds the draggable living topology and cockpit style metrics after the base UI loads.
 
 ## Operational UI features
 
@@ -98,11 +99,14 @@ custom scenario JSON/YAML export
 custom scenario execution against the local API
 local JSON persistence for history/events
 topology visual editor controls for nodes and links
+drag and drop topology nodes inside the topology canvas
+automatic topology node shrinking as node count increases
 topology JSON editor for advanced edits
 topology snapshots and restore
 health check simulation settings per provider
 provider registry derived from topology
 live topology with clickable nodes, active path labels, edge labels, and animated packet flow
+cockpit style metrics dashboard with route attitude, gauges, annunciators, event tape, and provider matrix
 evidence headers and route trace views
 toast notifications
 release ZIP builder
