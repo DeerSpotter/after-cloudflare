@@ -17,10 +17,10 @@ tools/local-demo/start_embedded_maplibre.bat
 Startup is intentionally paused. Nothing starts polling and no scenario is run from the UI until the operator presses one of these controls:
 
 ```text
-Run selected
-Refresh once
-Start polling
-Reset
+Run
+Refresh
+Live
+Pause
 ```
 
 If the embedded GUI says pywebview is missing, install it with:
@@ -28,6 +28,19 @@ If the embedded GUI says pywebview is missing, install it with:
 ```bash
 python -m pip install pywebview
 ```
+
+## Embedded UI source layout
+
+The embedded MapLibre UI is now split into front end component files instead of one large Python string:
+
+```text
+tools/local-demo/ui/index.html
+tools/local-demo/ui/styles.css
+tools/local-demo/ui/app.js
+tools/local-demo/webview_console.py
+```
+
+`webview_console.py` starts the local API server, reads the UI files, injects the local base URL, and opens the pywebview window.
 
 ## What changed for the release build
 
