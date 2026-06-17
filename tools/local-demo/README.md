@@ -57,7 +57,7 @@ Output:
 tools/local-demo/release/flareless-local-demo.zip
 ```
 
-The ZIP includes launchers, UI files, scenario fixtures, screenshots, README, and Python runtime files.
+The ZIP includes launchers, UI files, scenario fixtures, screenshots, README, release notes, docs, and Python runtime files. Runtime state is created in the included empty `state` folder.
 
 ## Embedded UI source layout
 
@@ -93,24 +93,41 @@ approval inbox cards with approve/reject actions
 policy builder controls with add/remove conditions
 YAML/JSON policy preview
 Scenario Builder with custom failover chain
+saved named custom scenarios
 custom scenario JSON/YAML export
 custom scenario execution against the local API
 local JSON persistence for history/events
-evidence headers and route trace views
+topology visual editor controls for nodes and links
+topology JSON editor for advanced edits
+topology snapshots and restore
+health check simulation settings per provider
+provider registry derived from topology
 live topology with clickable nodes, active path labels, edge labels, and animated packet flow
+evidence headers and route trace views
 toast notifications
 release ZIP builder
 ```
 
 ## Local persistence
 
-The UI saves run history and events to:
+Runtime files are created under:
 
 ```text
-tools/local-demo/state/local-ui-state.json
+tools/local-demo/state/
 ```
 
-This file is created at runtime and is intentionally local only.
+Current runtime state files:
+
+```text
+local-ui-state.json
+topology-config.json
+topology-snapshots.json
+custom-scenarios.json
+health-settings.json
+provider-registry.json
+```
+
+These files are intentionally local only.
 
 ## Run it
 
@@ -166,52 +183,4 @@ From the repository root:
 
 ```bash
 python tools/local-demo/run_tests.py
-```
-
-The test runner performs these checks:
-
-```text
-compile all local demo Python files
-validate scenario fixture contracts
-run unittest API and lifecycle coverage
-```
-
-## What it demonstrates
-
-```text
-failure aware route control plus agent assisted recommendations
-```
-
-It shows provider health, route attempts, route trace JSON, failure points, agent recommendation, operator approval or rejection, audit log, and Micro CDN trust model boundaries.
-
-## What it does not claim
-
-The local demo does not implement:
-
-```text
-real peer chunk transfer
-distributed health checks
-detached manifest signatures
-production control plane
-external CDN API integration
-```
-
-Those remain future work.
-
-## Release recommendation
-
-```text
-v0.1.0-local-demo-console
-```
-
-Suggested release title:
-
-```text
-Flareless v0.1.0: Failure Aware Route Control Demo
-```
-
-Suggested release description:
-
-```text
-A local Python command center that shows provider failure, route traces, agent assisted recommendations, operator approval, audit logging, Micro CDN trust boundaries, a live topology, a scenario builder, local history persistence, and release packaging helpers.
 ```
