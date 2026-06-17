@@ -6,82 +6,113 @@
 
 <p align="center">
   <a href="./ROADMAP.md" title="View the active prototype roadmap"><img src="https://img.shields.io/badge/status-prototype-orange" alt="status prototype"></a><br>
-  <a href="https://deerspotter.github.io/flareless/demo/" title="Open the live routing failure demo"><img src="https://img.shields.io/badge/CDN-failover-d73a49" alt="CDN failover"></a><br>
-  <a href="./ARCHITECTURE.md#peer-assisted-fallback" title="Read the peer assisted fallback architecture"><img src="https://img.shields.io/badge/peer-assist-6f42c1" alt="peer assist"></a><br>
-  <a href="./SECURITY.md#peer-delivery-rules" title="Read the peer integrity verification rules"><img src="https://img.shields.io/badge/integrity-planned-f9c513" alt="integrity planned"></a><br>
-  <a href="./ARCHITECTURE.md#avoiding-a-new-single-point-of-failure" title="Read the scoped route policy and origin fallback model"><img src="https://img.shields.io/badge/origin-controlled-f9c513" alt="origin controlled"></a>
+  <a href="https://deerspotter.github.io/flareless/demo/" title="Open the live routing failure demo"><img src="https://img.shields.io/badge/static-demo-implemented-d73a49" alt="static demo implemented"></a><br>
+  <a href="./tools/local-demo/README.md" title="Read the local command dashboard docs"><img src="https://img.shields.io/badge/local-dashboard-implemented-2ea44f" alt="local dashboard implemented"></a><br>
+  <a href="./SECURITY.md" title="Read the security model"><img src="https://img.shields.io/badge/security-boundaries-f9c513" alt="security boundaries"></a>
 </p>
 
 # Flareless
 
-Flareless is for the engineers who built the edge, kept it alive, carried the pager, solved the incidents, and then got told they were expendable.
+Flareless is an open source edge routing and failover prototype for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient public content delivery.
 
-This project gives that anger somewhere useful to go.
+It is being built around one practical idea:
 
-Not a rant. Not a boycott. Not a revenge repo.
-
-A build.
-
-An open source edge router and runtime prototype for programmable request handling, multi CDN failover, provider neutral traffic control, and resilient internet delivery.
+```text
+One provider should not be the single operational control point for DNS, TLS, WAF, cache, routing, monitoring, and failover.
+```
 
 > [!IMPORTANT]
-> Flareless does not treat peer delivery as blind fallback. Route policy, integrity checks, provider health, and failure scope decide what happens next.
+> Flareless is a prototype. It does not claim to be a production CDN, a production peer network, or a production control plane yet.
 
 > [!NOTE]
-> The current public demo is static. It simulates CDN timeout behavior, HTTP status failover, peer assisted fallback, and policy controlled origin fallback without requiring a worker, backend, or paid hosting.
+> The public GitHub Pages demo is static. The richer command dashboard is the local Python demo under `tools/local-demo`.
 
 ## Current Status
 
-This table is intentionally near the top so the repo stays honest about what is implemented now and what is still planned.
+This table is intentionally near the top so the repo stays honest about what exists now and what is still planned.
 
 | Feature | Status |
 | --- | --- |
-| Multi provider routing | Prototype implemented |
-| Provider timeout failover | Prototype implemented |
-| HTTP status failover | Prototype implemented |
-| Route scoped health | Prototype implemented |
-| Failure point tracking | Implemented |
-| Route trace object | Implemented |
-| Agent route trace analysis | Implemented |
-| Agent recommendation report | Implemented |
-| Local demo console | Implemented |
 | Static public demo | Implemented as simulation |
+| Local Python command dashboard | Implemented |
+| Embedded MapLibre dashboard map | Implemented |
+| Manual scenario runner | Implemented |
+| Provider timeout and status failover simulation | Implemented |
+| Route trace object and evidence headers | Implemented |
+| Agent recommendation inbox | Implemented |
+| Operator approve / reject flow | Implemented |
+| Metrics dashboard with custom widgets | Implemented |
+| Host responsibility profiles | Implemented in local settings |
+| Living topology view | Implemented as isolated SVG module |
+| Topology drag, edit, snapshot, restore | Implemented |
+| Agent Ops settings for free local / paid API marker | Implemented as local demo prep |
+| Hosted locations setup registry | Implemented as local demo prep |
 | Optional micro CDN trust model | MVP implemented |
-| Approval manifest schema | Implemented |
-| Approval reason codes | Implemented |
-| Peer fallback | JSON fallback response only |
 | Real peer chunk transfer | Not implemented |
-| Hash verified micro CDN bytes | Implemented for local node cache |
 | Hash verified peer bytes | Not implemented |
 | Detached manifest signatures | Not implemented |
 | Distributed health checks | Not implemented |
 | Durable production control plane | Not implemented |
+| Automatic FTP/SFTP/cPanel/host apply | Not implemented |
 
-The strongest current identity is failure aware route control with agent assisted recommendations. The peer assisted delivery path is being prepared, but it is not yet a production peer CDN.
+## Local Command Dashboard
 
-## Local Demo Console
-
-The recommended first release experience is the local Python demo console.
-
-It starts a local server and opens a Tkinter client that shows provider health, route traces, generated `x-flareless-*` evidence headers, agent recommendations, operator approval or rejection, audit log entries, and micro CDN trust model boundaries.
+The main current workbench is the local command dashboard.
 
 Run it from the repository root:
 
-```bash
-python tools/local-demo/run_demo.py
+```text
+tools/local-demo/start.bat
 ```
 
-Test it from the repository root:
+The local dashboard starts a Python server and opens an embedded MapLibre GUI. Startup is intentionally paused. Nothing polls and no scenario runs until the operator presses `Run`, `Refresh`, or `Live`.
 
-```bash
-python tools/local-demo/run_tests.py
+The dashboard currently includes:
+
+```text
+Dashboard       MapLibre route map, provider cards, route reason, manual scenario controls
+Traffic         Provider health and route attempts
+Providers       Normalized provider health table
+Policies        Visual IF / THEN policy preview
+Builder         Custom failover chain builder with saved scenarios
+Approvals       Agent recommendation inbox and operator decision flow
+Peers           Micro CDN trust model and peer boundary information
+Evidence        Generated x-flareless-* headers and route trace JSON
+Replay          Route attempt replay
+Incidents       Incident timeline generated from route and operator events
+Metrics         Cockpit style metrics, host responsibility, and custom widgets
+Topology        Isolated SVG topology with drag, edit, snapshot, restore
+History         Locally persisted run history
+Logs            Route trace and audit output
+Settings        Health settings, agents, hosted locations, and server behavior
 ```
 
-Read more:
+The local dashboard files live here:
+
+```text
+tools/local-demo/ui/index.html
+tools/local-demo/ui/styles.css
+tools/local-demo/ui/app.js
+tools/local-demo/ui/cockpit_topology.js
+tools/local-demo/ui/agent_hosting_ui.js
+tools/local-demo/ui/host_profiles_metrics.js
+tools/local-demo/webview_console.py
+tools/local-demo/server.py
+```
+
+Read the local dashboard documentation:
 
 [tools/local-demo/README.md](./tools/local-demo/README.md)
 
-## Mobile Demo
+## Stable UI Baseline
+
+The current stable UI baseline is backed up here:
+
+[baseline-2026-06-17-map-topology-stable](https://github.com/DeerSpotter/flareless/tree/baseline-2026-06-17-map-topology-stable)
+
+That baseline preserves the point where the Dashboard MapLibre map and the Topology SVG module are separated. Future UI work should avoid mixing MapLibre initialization with optional topology or widget modules.
+
+## Mobile Static Demo
 
 [https://deerspotter.github.io/flareless/demo/](https://deerspotter.github.io/flareless/demo/)
 
@@ -90,10 +121,10 @@ The mobile demo is static and requires no worker, backend, or paid hosting. It s
 ## Start Here
 
 * [Quickstart](./QUICKSTART.md) explains how to run the local runtime, tests, and simulator.
-* [Local Demo Console](./tools/local-demo/README.md) explains the Python server and Tkinter client for route failure, agent recommendation, operator approval, and audit logging.
-* [Mobile Demo](./demo/) contains a no hosting mobile browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
-* [Honest Feedback](./HONEST_FEEDBACK.md) is the blunt current project review, including what is strong, what is overclaimed, and what should happen next.
-* [Failure Point Tracking](./docs/failure-point-tracking.md) explains how Flareless records where a route broke before agent recommendations or fallback decisions.
+* [Local Demo Console](./tools/local-demo/README.md) explains the Python command dashboard, MapLibre GUI, topology, metrics, hosts, Agent Ops, scenarios, and local persistence.
+* [Mobile Demo](./demo/) contains a no hosting browser demo for timeout failover, HTTP failover, peer fallback, and origin fallback behavior.
+* [Honest Feedback](./HONEST_FEEDBACK.md) is the current blunt project review.
+* [Failure Point Tracking](./docs/failure-point-tracking.md) explains how Flareless records where a route broke.
 * [Agent Recommendation Lifecycle](./docs/agent-recommendation-lifecycle.md) explains pending recommendations, operator approval, rejection, and audit logging.
 * [Roadmap](./ROADMAP.md) breaks the project into contributor ready modules.
 * [Milestones](./MILESTONES.md) defines the build phases and exit criteria.
@@ -101,8 +132,6 @@ The mobile demo is static and requires no worker, backend, or paid hosting. It s
 * [Optional Micro CDN Module](./modules/micro-cdn/README.md) explains the optional community micro CDN prototype.
 * [Micro CDN Trust Model](./modules/micro-cdn/TRUST_MODEL.md) explains approval manifests, route reason codes, and untrusted node boundaries.
 * [Micro CDN Protocol Draft](./modules/micro-cdn/protocol.md) defines node registration, content registration, routing responses, and v1 constraints.
-* [Micro CDN Node Agent](./modules/micro-cdn/node-agent/README.md) explains how a node caches, serves, advertises, and deletes approved content.
-* [Micro CDN Coordinator](./modules/micro-cdn/coordinator/README.md) explains local coordinator state, endpoints, routing purpose, and current limits.
 * [Contributing](./CONTRIBUTING.md) explains how to contribute without needing private context.
 * [Security](./SECURITY.md) explains trust boundaries, peer rules, provider routing rules, and secret handling.
 * [Code of Conduct](./CODE_OF_CONDUCT.md) keeps the project sharp without letting it become personal.
@@ -119,7 +148,7 @@ flowchart LR
     STL --> A[CDN A]
     STL --> B[CDN B]
     STL --> C[CDN C]
-    STL --> P[Peer Assisted Fallback Path]
+    STL --> P[Optional Peer Assisted Fallback]
     A --> D[Routed Response]
     B --> D
     C --> D
@@ -137,42 +166,16 @@ If one CDN fails, blocks traffic, rate limits the site, or becomes unreachable, 
 
 ## Optional Micro CDN Module
 
-Flareless also includes an optional micro CDN prototype under `modules/micro-cdn`.
+Flareless includes an optional micro CDN prototype under `modules/micro-cdn`.
 
 The micro CDN module lets a node operator explicitly opt in to caching and serving approved public static files. It is not an exit node, not arbitrary proxying, and not private traffic inspection.
 
-The current prototype supports:
-
-```text
-approve public content path
-validate approval metadata
-reject malformed approval records
-reject expired approvals
-cache local file
-verify SHA256
-store cached bytes by hash
-advertise content to coordinator
-route by public /mcdn path
-return route reason codes
-return candidate reason codes
-reject disabled and offline nodes
-serve cached content from node
-persist coordinator state
-persist node manifest
-delete cached content
-unadvertise deleted content
-```
+The current prototype supports local approval metadata, SHA256 validation, cached bytes by hash, local coordinator state, route reason codes, disabled/offline node rejection, cached content serving, and cache deletion.
 
 The public path model is:
 
 ```text
 /mcdn/{namespace}/{displayPath}
-```
-
-Example:
-
-```text
-/mcdn/demo/hello.txt
 ```
 
 Internally, nodes store bytes by hash:
@@ -192,7 +195,8 @@ public/             Browser side peer logic
 scripts/            Local runner and simulation tools
 tests/              Node test suite
 demo/               Static mobile browser demo
-tools/local-demo/   Python local demo console
+tools/local-demo/   Python local command dashboard
+modules/micro-cdn/  Optional micro CDN prototype
 ```
 
 Local checks:
@@ -208,27 +212,15 @@ go test ./...
 go build ./...
 ```
 
-Local provider chain integration test:
+## Example Route Evidence
 
-```bash
-npm test
-```
-
-The integration test covers this route sequence:
+Expected route evidence for a provider timeout failover:
 
 ```text
-cdn-a times out
-cdn-b returns 429
-cdn-c succeeds
-```
-
-Expected route evidence:
-
-```text
-x-flareless-provider: cdn-c
+x-flareless-provider: cdn-b
 x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
-x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_BLOCKED_429,cdn-c:PROVIDER_SUCCESS
-x-flareless-failure-points: 1:PROVIDER_TIMEOUT:cdn-a:PROVIDER_TIMEOUT,2:PROVIDER_BLOCKED_STATUS:cdn-b:PROVIDER_BLOCKED_429
+x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS
+x-flareless-failure-points: 1:PROVIDER_TIMEOUT:cdn-a:PROVIDER_TIMEOUT
 x-flareless-route-trace: encoded routeTrace JSON
 ```
 
@@ -246,49 +238,6 @@ routeTrace = {
 }
 ```
 
-Agent route trace analysis:
-
-```bash
-curl -X POST http://localhost:8787/agent/cdn-control \
-  -H "content-type: application/json" \
-  -d '{"routeTrace":{"requestId":"trace-001","routeKey":"route:/video/example/v1","policyId":"video-public-peer-first","attempts":[{"provider":"cdn-a","result":"PROVIDER_TIMEOUT"}],"failurePoints":[],"selectedFallback":null,"finalStatus":{"outcome":"provider-success","statusCode":200,"provider":"cdn-b","reason":"PROVIDER_TIMEOUT_FAILOVER"}}}'
-```
-
-Local runner:
-
-```bash
-npm run local
-```
-
-Timeout failover demo:
-
-```bash
-npm run demo:timeout-failover
-```
-
-Expected demo result:
-
-```text
-cdn-a:PROVIDER_TIMEOUT
-cdn-b:PROVIDER_SUCCESS
-x-flareless-provider: cdn-b
-x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
-```
-
-Simulator:
-
-```bash
-npm run simulate
-```
-
-Mobile browser demo:
-
-```text
-https://deerspotter.github.io/flareless/demo/
-```
-
-The demo is static and requires no worker, backend, or paid hosting. It simulates provider timeout, HTTP status failover, peer assisted fallback, and route policy behavior for origin fallback.
-
 ## Design Goals
 
 * Multi CDN routing
@@ -300,6 +249,7 @@ The demo is static and requires no worker, backend, or paid hosting. It simulate
 * Optional onion access for emergency reachability
 * No single CDN control point
 * Cloudflare style edge worker language without Cloudflare dependency
+* Operator visible evidence before automated action
 
 ## Recommended Architecture
 
@@ -346,69 +296,6 @@ Good:
 
 Each route is independent.
 
-## Example Content Path
-
-```text
-/video/show-name/episode-001/v17/720p/chunk-0001.ts
-```
-
-Use versioned paths instead of overwriting live files.
-
-## Failover Logic
-
-```mermaid
-flowchart TD
-    R[Request arrives] --> A[Try primary CDN]
-    A -->|success| OK[Return response with route headers]
-    A -->|timeout| B[Try next ranked CDN]
-    A -->|403, 404, 429, or 5xx| B
-    B -->|success| OK
-    B -->|all CDNs failed| P[Return peer fallback response]
-    P -->|future verified chunks| OK
-    P -->|peer unavailable| O{Origin fallback allowed?}
-    O -->|yes| OR[Fetch from origin]
-    O -->|no| SAFE[Fail closed safely]
-```
-
-Provider fetches are timeout aware. Each provider can define `timeoutMs`; when a provider does not answer before its deadline, Flareless records the timeout, marks that provider as failed, and tries the next ranked provider.
-
-Successful routed responses include explanation headers:
-
-```text
-x-flareless-provider: cdn-b
-x-flareless-route-id: route-id
-x-flareless-reason: PROVIDER_TIMEOUT_FAILOVER
-x-flareless-attempts: cdn-a:PROVIDER_TIMEOUT,cdn-b:PROVIDER_SUCCESS
-```
-
-## Health Check Signals
-
-Each CDN route should be checked from multiple regions.
-
-```text
-DNS success
-TLS success
-HTTP status
-Time to first byte
-Chunk download speed
-Error rate
-Provider specific block response
-```
-
-## Edge Routing Flow
-
-```text
-Incoming request
-  |
-Check route health table
-  |
-Select best healthy CDN
-  |
-Rewrite request to selected provider
-  |
-Return response or redirect
-```
-
 ## Security Model
 
 Assume every external node can fail or behave maliciously.
@@ -423,6 +310,7 @@ Required controls:
 * Clear content ownership
 * Origin access restrictions
 * No private key sharing with peers
+* No automatic host file changes without backup, diff preview, and explicit operator approval
 
 > [!CAUTION]
 > Peer assisted delivery should only serve approved public content. It should not become an arbitrary proxy, exit node, or private traffic relay.
