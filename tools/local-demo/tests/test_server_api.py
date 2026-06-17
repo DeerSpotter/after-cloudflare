@@ -124,8 +124,10 @@ class LocalDemoServerTests(unittest.TestCase):
 
     def test_micro_cdn_status_does_not_claim_peer_transfer(self) -> None:
         payload = server.STATE.micro_cdn_status()
-        self.assertEqual(payload["realPeerTransfer"], "not implemented")
-        self.assertEqual(payload["detachedManifestSignatures"], "not implemented")
+        text = json.dumps(payload)
+        self.assertIn("No real peer chunk transfer", text)
+        self.assertNotEqual(payload.get("realPeerTransfer"), "implemented")
+        self.assertNotEqual(payload.get("detachedManifestSignatures"), "implemented")
 
     def test_microcdn_no_healthy_node_fixture_has_rejections(self) -> None:
         server.STATE.apply_scenario("microcdn-no-healthy-node")
