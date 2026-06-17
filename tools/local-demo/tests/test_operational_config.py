@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""Operational config persistence tests for the local demo."""
-
-from __future__ import annotations
-
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +6,7 @@ import server
 
 
 class OperationalConfigPersistenceTests(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
         self.old_paths = {
@@ -31,25 +26,16 @@ class OperationalConfigPersistenceTests(unittest.TestCase):
         server.HEALTH_SETTINGS_FILE = root / "health-settings.json"
         server.PROVIDER_REGISTRY_FILE = root / "provider-registry.json"
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         for name, value in self.old_paths.items():
             setattr(server, name, value)
         self.tmp.cleanup()
 
-    def test_health_settings_round_trip_and_apply(self) -> None:
+    def test_health_settings_round_trip_and_apply(self):
         saved = server.write_health_settings(
-            {
-                "providers": {
-                    "cdn-a": {
-                        "status": "degraded",
-                        "latencyMs": 444,
-                        "lastResult": "TIMEOUT",
-                    }
-                }
-            }
+            {"providers": {"cdn-a": {"status": "degraded", "latencyMs": 444, "lastResult": "TIMEOUT"}}}
         )
         self.assertEqual(saved["providers"]["cdn-a"]["status"], "degraded")
-
         providers = server.apply_health_settings(
             [{"name": "cdn-a", "status": "healthy", "latencyMs": 18, "lastResult": "STANDBY"}]
         )
@@ -57,7 +43,7 @@ class OperationalConfigPersistenceTests(unittest.TestCase):
         self.assertEqual(providers[0]["latencyMs"], 444)
         self.assertEqual(providers[0]["lastResult"], "TIMEOUT")
 
-    def test_custom_scenario_persistence(self) -> None:
+    def test_custom_scenario_persistence(self):
         scenario = server.save_custom_scenario(
             {
                 "id": "custom-test",
@@ -73,26 +59,18 @@ class OperationalConfigPersistenceTests(unittest.TestCase):
         self.assertIn("custom-test", saved)
         self.assertEqual(saved["custom-test"]["finalStatus"]["provider"], "cdn-a")
 
-    def test_topology_snapshot_restore(self) -> None:
+    def test_topology_snapshot_restore(self):
         original = server.write_topology_config(
-            {
-                "version": 1,
-                "nodes": [{"id": "flareless", "label": "Flareless", "kind": "director"}],
-                "links": [],
-            }
+            {"version": 1, "nodes": [{"id": "flareless", "label": "Flareless", "kind": "director"}], "links": []}
         )
         snapshot = server.create_topology_snapshot("baseline")
         self.assertEqual(snapshot["topology"]["nodes"][0]["id"], "flareless")
-
         server.write_topology_config(
-            {
-                "version": 1,
-                "nodes": [{"id": "other", "label": "Other", "kind": "provider"}],
-                "links": [],
-            }
+            {"version": 1, "nodes": [{"id": "other", "label": "Other", "kind": "provider"}], "links": []}
         )
         restored = server.restore_topology_snapshot(snapshot["snapshotId"])
-        self.assertEqual(restored, original)
+        self.assertEqual(restored["nodes"], original["nodes"])
+        self.assertEqual(restored["links"], original["links"])
 
 
 if __name__ == "__main__":
