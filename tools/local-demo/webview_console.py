@@ -28,7 +28,13 @@ def render_embedded_html(base_url: str) -> str:
     """Load the componentized HTML, CSS, and JS for the embedded webview."""
     template = (UI_DIR / "index.html").read_text(encoding="utf-8")
     styles = (UI_DIR / "styles.css").read_text(encoding="utf-8")
-    script = (UI_DIR / "app.js").read_text(encoding="utf-8")
+    scripts = [
+        (UI_DIR / "app.js").read_text(encoding="utf-8"),
+    ]
+    cockpit_topology = UI_DIR / "cockpit_topology.js"
+    if cockpit_topology.exists():
+        scripts.append(cockpit_topology.read_text(encoding="utf-8"))
+    script = "\n\n".join(scripts)
     return (
         template.replace("__BASE_URL__", html.escape(base_url.rstrip("/"), quote=True))
         .replace("__APP_CSS__", styles)
