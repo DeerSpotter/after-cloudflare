@@ -11,7 +11,13 @@ It can run as either the original Tkinter console or the new embedded MapLibre G
 Use this for the release quality GUI:
 
 ```text
-tools/local-demo/start_embedded_maplibre.bat
+tools/local-demo/start.bat
+```
+
+`start.bat` now launches the embedded MapLibre command center. The legacy Tkinter launcher moved to:
+
+```text
+tools/local-demo/start_tkinter.bat
 ```
 
 Startup is intentionally paused. Nothing starts polling and no scenario is run from the UI until the operator presses one of these controls:
@@ -129,16 +135,16 @@ tools/local-demo/osiris_map_assets.py
 
 ### Windows double click launchers
 
-Preferred:
-
-```text
-tools/local-demo/start_embedded_maplibre.bat
-```
-
-Fallback original Tkinter console:
+Preferred embedded MapLibre command center:
 
 ```text
 tools/local-demo/start.bat
+```
+
+Legacy Tkinter console:
+
+```text
+tools/local-demo/start_tkinter.bat
 ```
 
 Fallback browser MapLibre map:
